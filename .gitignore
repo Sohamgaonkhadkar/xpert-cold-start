@@ -1,0 +1,35 @@
+# Private challenge datasets & reference answers (NEVER commit)
+/data/
+data/
+/answers/
+data/**/answers/
+dev_data/
+hidden_data/
+!example/
+!example/answers/
+!example/answers/**
+starter/
+*.zip
+*.tar.gz
+
+# Secrets & environment configs
+.env
+.env.*
+*.secret
+*.key
+
+# Virtual environments & Python caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime / scratch outputs
+output.json
+tmp_*/
+*.tmp.json
+Unselected files/
