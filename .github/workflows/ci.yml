@@ -25,3 +25,17 @@ jobs:
           cd /tmp
           bash "$GITHUB_WORKSPACE/run.sh" 'xpert input' 'xpert output/result.json'
           python "$GITHUB_WORKSPACE/check.py" 'xpert input' 'xpert output/result.json'
+  clean-container:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest -q
+      - name: Official two-argument command in a clean container
+        run: |
+          bash run.sh example /tmp/xpert-container.json
+          python check.py example /tmp/xpert-container.json
+          python -S -m src.cli example /tmp/xpert-stdlib.json
+          python check.py example /tmp/xpert-stdlib.json
