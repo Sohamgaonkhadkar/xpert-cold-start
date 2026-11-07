@@ -1,0 +1,980 @@
+{
+  "benchmark_note": "Measured reproducibly on the 8-week, 1,407-message multilingual synthetic stress & 20-case adversarial benchmark (scripts/run_experiments.py), plus a 20,000-message / 320-chat scale benchmark. Official Arjun dev-set starter/data archives are not present in this sandbox; no official dev-set numbers are fabricated.",
+  "experiments": [
+    {
+      "experiment": "exp0_naive_baseline",
+      "runtime_sec": 0.0656,
+      "total_messages": 1410,
+      "tokens_estimated": 50977,
+      "dollars_per_1k_messages": 0.0211,
+      "score_86": 39.325,
+      "score_93": 39.325,
+      "breakdown": {
+        "circles_12": 0.48,
+        "organisations_8": 0.0,
+        "chats_8": 5.677,
+        "goals_8": 3.0,
+        "open_loops_found_14": 9.24,
+        "open_loops_closed_14": 9.625,
+        "intervention_10": 0.0,
+        "cost_12": 11.303,
+        "execution_7": 0.0
+      },
+      "diagnostics": {
+        "circle_accuracy_unseeded": 0.0455,
+        "staff_support_accuracy": 0.0,
+        "org_match_ratio": 0.0,
+        "chat_accuracy": 0.7097,
+        "goal_recall": 0.75,
+        "invented_goals": 2,
+        "loop_precision": 0.7619,
+        "loop_recall": 0.64,
+        "loop_f1": 0.6957,
+        "false_done_count": 1,
+        "missed_done_count": 3,
+        "false_interventions_on_leave": 4,
+        "dollars_per_1k_messages": 0.02108
+      },
+      "errors": {
+        "circles": [
+          {
+            "id": "p_parent_mom",
+            "expected": "parent",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_inlaw_dad",
+            "expected": "in-law",
+            "predicted": "friend"
+          },
+          {
+            "id": "p_sibling",
+            "expected": "sibling",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_relative",
+            "expected": "relative",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_colleague_1",
+            "expected": "colleague",
+            "predicted": "partner"
+          },
+          {
+            "id": "p_colleague_2",
+            "expected": "colleague",
+            "predicted": "partner"
+          },
+          {
+            "id": "p_colleague_3",
+            "expected": "colleague",
+            "predicted": "friend"
+          },
+          {
+            "id": "p_client_1",
+            "expected": "client",
+            "predicted": "friend"
+          },
+          {
+            "id": "p_client_2",
+            "expected": "client",
+            "predicted": "friend"
+          },
+          {
+            "id": "p_vendor_ca",
+            "expected": "vendor",
+            "predicted": "friend"
+          },
+          {
+            "id": "p_vendor_elec",
+            "expected": "vendor",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_staff_driver",
+            "expected": "staff",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_staff_cook",
+            "expected": "staff",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_staff_villa",
+            "expected": "staff",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_soc_sec",
+            "expected": "friend",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_silent_rel",
+            "expected": "relative",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_silent_col",
+            "expected": "colleague",
+            "predicted": "partner"
+          },
+          {
+            "id": "p_dual_cousin_ca",
+            "expected": "relative",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_bengali_aunt",
+            "expected": "relative",
+            "predicted": "spouse"
+          },
+          {
+            "id": "p_subtle_client",
+            "expected": "client",
+            "predicted": "friend"
+          },
+          {
+            "id": "p_tutor",
+            "expected": "vendor",
+            "predicted": "friend"
+          }
+        ],
+        "chats": [
+          {
+            "chat_id": "c_grp_zephyr_core",
+            "expected": "organisation:org_zephyr",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_kite_ops",
+            "expected": "organisation:org_kite",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_home",
+            "expected": "organisation:org_home",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_society",
+            "expected": "organisation:org_society",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_villa",
+            "expected": "organisation:org_villa",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_class4b",
+            "expected": "person:p_child",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_northstar",
+            "expected": "person:p_client_1",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_friends",
+            "expected": "person:p_friend_2",
+            "predicted": "organisation:base_org_1"
+          },
+          {
+            "chat_id": "c_grp_family_big",
+            "expected": "person:p_parent_mom",
+            "predicted": "organisation:base_org_1"
+          }
+        ],
+        "closures": [
+          {
+            "title": "File October GST return",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Transfer October maths tuition fee",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Send revised Q4 security questionnaire proposal",
+            "issue": "FALSE_DONE",
+            "predicted": "done",
+            "expected": "open"
+          },
+          {
+            "title": "Share API latency benchmark deck with Northstar",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          }
+        ],
+        "interventions": [
+          {
+            "title": "Update customer onboarding Notion docs",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Get Honda car tyre pressure and servicing checked",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Prepare November hiring budget spreadsheet",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Rahul send staging server AWS logs to Sneha",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Shortlist two beachfront resort options in Coorg or Goa",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Write personal anniversary note",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          }
+        ]
+      }
+    },
+    {
+      "experiment": "exp1_relationship_and_org_dossiers",
+      "runtime_sec": 0.105,
+      "total_messages": 1410,
+      "llm_calls": 3,
+      "stage_tokens": {
+        "relationship_inference": {
+          "calls": 1,
+          "prompt_tokens": 2221,
+          "completion_tokens": 238,
+          "total_tokens": 2459
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 666,
+          "completion_tokens": 6,
+          "total_tokens": 672
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 556,
+          "completion_tokens": 1,
+          "total_tokens": 557
+        }
+      },
+      "tokens_estimated": 43229,
+      "dollars_per_1k_messages": 0.01696,
+      "score_86": 66.531,
+      "score_93": 73.531,
+      "breakdown": {
+        "circles_12": 12.0,
+        "organisations_8": 8.0,
+        "chats_8": 8.0,
+        "goals_8": 8.0,
+        "open_loops_found_14": 9.24,
+        "open_loops_closed_14": 9.625,
+        "intervention_10": 0.0,
+        "cost_12": 11.666,
+        "execution_7": 7.0
+      },
+      "diagnostics": {
+        "circle_accuracy_unseeded": 1.0,
+        "staff_support_accuracy": 1.0,
+        "org_match_ratio": 1.0,
+        "chat_accuracy": 1.0,
+        "goal_recall": 1.0,
+        "invented_goals": 0,
+        "loop_precision": 0.7619,
+        "loop_recall": 0.64,
+        "loop_f1": 0.6957,
+        "false_done_count": 1,
+        "missed_done_count": 3,
+        "false_interventions_on_leave": 4,
+        "dollars_per_1k_messages": 0.01696
+      },
+      "errors": {
+        "circles": [],
+        "chats": [],
+        "closures": [
+          {
+            "title": "File October GST return",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Transfer October maths tuition fee",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Send revised Q4 security questionnaire proposal",
+            "issue": "FALSE_DONE",
+            "predicted": "done",
+            "expected": "open"
+          },
+          {
+            "title": "Share API latency benchmark deck with Northstar",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          }
+        ],
+        "interventions": [
+          {
+            "title": "Update customer onboarding Notion docs",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Get Honda car tyre pressure and servicing checked",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Prepare November hiring budget spreadsheet",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Rahul send staging server AWS logs to Sneha",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Shortlist two beachfront resort options in Coorg or Goa",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Write personal anniversary note",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          }
+        ]
+      }
+    },
+    {
+      "experiment": "exp2_multilingual_loop_discovery",
+      "runtime_sec": 0.0888,
+      "total_messages": 1410,
+      "llm_calls": 4,
+      "stage_tokens": {
+        "relationship_inference": {
+          "calls": 1,
+          "prompt_tokens": 2221,
+          "completion_tokens": 238,
+          "total_tokens": 2459
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 666,
+          "completion_tokens": 6,
+          "total_tokens": 672
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 556,
+          "completion_tokens": 1,
+          "total_tokens": 557
+        },
+        "loop_discovery": {
+          "calls": 1,
+          "prompt_tokens": 2226,
+          "completion_tokens": 3,
+          "total_tokens": 2229
+        }
+      },
+      "tokens_estimated": 45770,
+      "dollars_per_1k_messages": 0.01795,
+      "score_86": 70.127,
+      "score_93": 77.127,
+      "breakdown": {
+        "circles_12": 12.0,
+        "organisations_8": 8.0,
+        "chats_8": 8.0,
+        "goals_8": 8.0,
+        "open_loops_found_14": 13.434,
+        "open_loops_closed_14": 9.129,
+        "intervention_10": 0.0,
+        "cost_12": 11.564,
+        "execution_7": 7.0
+      },
+      "diagnostics": {
+        "circle_accuracy_unseeded": 1.0,
+        "staff_support_accuracy": 1.0,
+        "org_match_ratio": 1.0,
+        "chat_accuracy": 1.0,
+        "goal_recall": 1.0,
+        "invented_goals": 0,
+        "loop_precision": 0.96,
+        "loop_recall": 0.96,
+        "loop_f1": 0.96,
+        "false_done_count": 1,
+        "missed_done_count": 5,
+        "false_interventions_on_leave": 6,
+        "dollars_per_1k_messages": 0.01795
+      },
+      "errors": {
+        "circles": [],
+        "chats": [],
+        "closures": [
+          {
+            "title": "Send Bapi caretaker salary",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "File October GST return",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Change balcony light switch",
+            "issue": "status_mismatch",
+            "predicted": "open",
+            "expected": "dropped"
+          },
+          {
+            "title": "Transfer October maths tuition fee",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Send revised Q4 security questionnaire proposal",
+            "issue": "FALSE_DONE",
+            "predicted": "done",
+            "expected": "open"
+          },
+          {
+            "title": "Share API latency benchmark deck with Northstar",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          },
+          {
+            "title": "Email mutual NDA draft to Siddharth",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          }
+        ],
+        "interventions": [
+          {
+            "title": "Manoj pick up Kabir from school and Maa for clinic",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Update customer onboarding Notion docs",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Share sweet shop phone number with Mita Mashi",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Get Honda car tyre pressure and servicing checked",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Prepare November hiring budget spreadsheet",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Think about winter vacation tickets",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Rahul send staging server AWS logs to Sneha",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Shortlist two beachfront resort options in Coorg or Goa",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Write personal anniversary note",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          }
+        ]
+      }
+    },
+    {
+      "experiment": "exp3_arr_temporal_reconciliation",
+      "runtime_sec": 0.107,
+      "total_messages": 1410,
+      "llm_calls": 12,
+      "stage_tokens": {
+        "relationship_inference": {
+          "calls": 1,
+          "prompt_tokens": 2221,
+          "completion_tokens": 238,
+          "total_tokens": 2459
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 666,
+          "completion_tokens": 6,
+          "total_tokens": 672
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 556,
+          "completion_tokens": 1,
+          "total_tokens": 557
+        },
+        "loop_discovery": {
+          "calls": 1,
+          "prompt_tokens": 2226,
+          "completion_tokens": 3,
+          "total_tokens": 2229
+        },
+        "temporal_slow_verify": {
+          "calls": 8,
+          "prompt_tokens": 3384,
+          "completion_tokens": 34,
+          "total_tokens": 3418
+        }
+      },
+      "tokens_estimated": 49662,
+      "dollars_per_1k_messages": 0.01949,
+      "score_86": 75.008,
+      "score_93": 82.008,
+      "breakdown": {
+        "circles_12": 12.0,
+        "organisations_8": 8.0,
+        "chats_8": 8.0,
+        "goals_8": 8.0,
+        "open_loops_found_14": 13.58,
+        "open_loops_closed_14": 14.0,
+        "intervention_10": 0.0,
+        "cost_12": 11.428,
+        "execution_7": 7.0
+      },
+      "diagnostics": {
+        "circle_accuracy_unseeded": 1.0,
+        "staff_support_accuracy": 1.0,
+        "org_match_ratio": 1.0,
+        "chat_accuracy": 1.0,
+        "goal_recall": 1.0,
+        "invented_goals": 0,
+        "loop_precision": 0.96,
+        "loop_recall": 0.96,
+        "loop_f1": 0.96,
+        "false_done_count": 0,
+        "missed_done_count": 0,
+        "false_interventions_on_leave": 6,
+        "dollars_per_1k_messages": 0.01949
+      },
+      "errors": {
+        "circles": [],
+        "chats": [],
+        "closures": [],
+        "interventions": [
+          {
+            "title": "Manoj pick up Kabir from school and Maa for clinic",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Send revised Q4 security questionnaire proposal",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Update customer onboarding Notion docs",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Share sweet shop phone number with Mita Mashi",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Get Honda car tyre pressure and servicing checked",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Prepare November hiring budget spreadsheet",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Think about winter vacation tickets",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Rahul send staging server AWS logs to Sneha",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          },
+          {
+            "title": "Shortlist two beachfront resort options in Coorg or Goa",
+            "issue": "action_mismatch",
+            "predicted": "remind",
+            "expected": "assist"
+          },
+          {
+            "title": "Write personal anniversary note",
+            "issue": "FALSE_INTERVENTION_ON_LEAVE",
+            "predicted": "remind",
+            "expected": "leave"
+          }
+        ]
+      }
+    },
+    {
+      "experiment": "exp4_prism_intervention_policy",
+      "runtime_sec": 0.1214,
+      "total_messages": 1410,
+      "llm_calls": 13,
+      "stage_tokens": {
+        "relationship_inference": {
+          "calls": 1,
+          "prompt_tokens": 2221,
+          "completion_tokens": 238,
+          "total_tokens": 2459
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 666,
+          "completion_tokens": 6,
+          "total_tokens": 672
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 556,
+          "completion_tokens": 1,
+          "total_tokens": 557
+        },
+        "loop_discovery": {
+          "calls": 1,
+          "prompt_tokens": 2226,
+          "completion_tokens": 3,
+          "total_tokens": 2229
+        },
+        "temporal_slow_verify": {
+          "calls": 8,
+          "prompt_tokens": 3384,
+          "completion_tokens": 34,
+          "total_tokens": 3418
+        },
+        "intervention_policy": {
+          "calls": 1,
+          "prompt_tokens": 411,
+          "completion_tokens": 4,
+          "total_tokens": 415
+        }
+      },
+      "tokens_estimated": 50134,
+      "dollars_per_1k_messages": 0.01968,
+      "score_86": 84.993,
+      "score_93": 91.993,
+      "breakdown": {
+        "circles_12": 12.0,
+        "organisations_8": 8.0,
+        "chats_8": 8.0,
+        "goals_8": 8.0,
+        "open_loops_found_14": 13.58,
+        "open_loops_closed_14": 14.0,
+        "intervention_10": 10.0,
+        "cost_12": 11.413,
+        "execution_7": 7.0
+      },
+      "diagnostics": {
+        "circle_accuracy_unseeded": 1.0,
+        "staff_support_accuracy": 1.0,
+        "org_match_ratio": 1.0,
+        "chat_accuracy": 1.0,
+        "goal_recall": 1.0,
+        "invented_goals": 0,
+        "loop_precision": 0.96,
+        "loop_recall": 0.96,
+        "loop_f1": 0.96,
+        "false_done_count": 0,
+        "missed_done_count": 0,
+        "false_interventions_on_leave": 0,
+        "dollars_per_1k_messages": 0.01968
+      },
+      "errors": {
+        "circles": [],
+        "chats": [],
+        "closures": [],
+        "interventions": []
+      }
+    },
+    {
+      "experiment": "exp5_cost_cascaded_optimization",
+      "runtime_sec": 0.0974,
+      "total_messages": 1410,
+      "llm_calls": 13,
+      "stage_tokens": {
+        "relationship_inference": {
+          "calls": 1,
+          "prompt_tokens": 2221,
+          "completion_tokens": 238,
+          "total_tokens": 2459
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 666,
+          "completion_tokens": 6,
+          "total_tokens": 672
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 556,
+          "completion_tokens": 1,
+          "total_tokens": 557
+        },
+        "loop_discovery": {
+          "calls": 1,
+          "prompt_tokens": 2226,
+          "completion_tokens": 3,
+          "total_tokens": 2229
+        },
+        "temporal_slow_verify": {
+          "calls": 8,
+          "prompt_tokens": 3384,
+          "completion_tokens": 34,
+          "total_tokens": 3418
+        },
+        "intervention_policy": {
+          "calls": 1,
+          "prompt_tokens": 411,
+          "completion_tokens": 4,
+          "total_tokens": 415
+        }
+      },
+      "tokens_estimated": 9750,
+      "dollars_per_1k_messages": 0.00301,
+      "score_86": 85.58,
+      "score_93": 92.58,
+      "breakdown": {
+        "circles_12": 12.0,
+        "organisations_8": 8.0,
+        "chats_8": 8.0,
+        "goals_8": 8.0,
+        "open_loops_found_14": 13.58,
+        "open_loops_closed_14": 14.0,
+        "intervention_10": 10.0,
+        "cost_12": 12.0,
+        "execution_7": 7.0
+      },
+      "diagnostics": {
+        "circle_accuracy_unseeded": 1.0,
+        "staff_support_accuracy": 1.0,
+        "org_match_ratio": 1.0,
+        "chat_accuracy": 1.0,
+        "goal_recall": 1.0,
+        "invented_goals": 0,
+        "loop_precision": 0.96,
+        "loop_recall": 0.96,
+        "loop_f1": 0.96,
+        "false_done_count": 0,
+        "missed_done_count": 0,
+        "false_interventions_on_leave": 0,
+        "dollars_per_1k_messages": 0.00301
+      },
+      "errors": {
+        "circles": [],
+        "chats": [],
+        "closures": [],
+        "interventions": []
+      }
+    }
+  ],
+  "tier0_zero_token_ablation": {
+    "score_86": 84.997,
+    "score_93": 91.997,
+    "breakdown": {
+      "circles_12": 12.0,
+      "organisations_8": 8.0,
+      "chats_8": 8.0,
+      "goals_8": 8.0,
+      "open_loops_found_14": 13.58,
+      "open_loops_closed_14": 13.417,
+      "intervention_10": 10.0,
+      "cost_12": 12.0,
+      "execution_7": 7.0
+    },
+    "diagnostics": {
+      "circle_accuracy_unseeded": 1.0,
+      "staff_support_accuracy": 1.0,
+      "org_match_ratio": 1.0,
+      "chat_accuracy": 1.0,
+      "goal_recall": 1.0,
+      "invented_goals": 0,
+      "loop_precision": 0.96,
+      "loop_recall": 0.96,
+      "loop_f1": 0.96,
+      "false_done_count": 0,
+      "missed_done_count": 1,
+      "false_interventions_on_leave": 0,
+      "dollars_per_1k_messages": 0.0
+    },
+    "errors": {
+      "circles": [],
+      "chats": [],
+      "closures": [
+        {
+          "title": "Email mutual NDA draft to Siddharth",
+          "issue": "missed_done",
+          "predicted": "open",
+          "expected": "done"
+        }
+      ],
+      "interventions": []
+    }
+  },
+  "robustness": {
+    "input_ordering_shuffle_identical": true,
+    "identity_permutation": {
+      "scores_across_3_seeds": [
+        85.58,
+        85.58,
+        85.58
+      ],
+      "mean_score_86": 85.58,
+      "max_spread": 0.0
+    },
+    "temporal_truncation": {
+      "m103_gst_status_at_oct26": "open",
+      "m110_deck_status_at_oct26": "open",
+      "m115_q3_status_at_oct26": "done",
+      "m128_switch_status_at_oct26": "dropped",
+      "consistent": true
+    },
+    "seed_ablation": {
+      "full_seed_20pct": 85.58,
+      "half_seed_10pct": 84.66,
+      "zero_seed_0pct": 84.66
+    },
+    "hidden_persona_rename_invariance": {
+      "score_when_me_is_karan_and_colleague_is_arjun": 85.58,
+      "colleague_arjun_loop_m137_owner": "p_colleague_1"
+    },
+    "scale_20k_messages_320_chats": {
+      "messages": 20000,
+      "chats": 320,
+      "local_wall_sec": 1.035,
+      "headroom_vs_30min_limit_x": 1739.1,
+      "llm_calls": 15,
+      "prompt_tokens": 14664,
+      "completion_tokens": 315,
+      "estimated_total_usd_for_20k_msgs": 0.00637,
+      "dollars_per_1k_msgs_at_20k_scale": 0.00032
+    },
+    "ambiguity_cascade_audit": {
+      "total_messages_ingested": 1410,
+      "total_llm_calls_triggered": 13,
+      "stage_tokens": {
+        "relationship_inference": {
+          "calls": 1,
+          "prompt_tokens": 2221,
+          "completion_tokens": 238,
+          "total_tokens": 2459
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 666,
+          "completion_tokens": 6,
+          "total_tokens": 672
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 556,
+          "completion_tokens": 1,
+          "total_tokens": 557
+        },
+        "loop_discovery": {
+          "calls": 1,
+          "prompt_tokens": 2226,
+          "completion_tokens": 3,
+          "total_tokens": 2229
+        },
+        "temporal_slow_verify": {
+          "calls": 8,
+          "prompt_tokens": 3384,
+          "completion_tokens": 34,
+          "total_tokens": 3418
+        },
+        "intervention_policy": {
+          "calls": 1,
+          "prompt_tokens": 411,
+          "completion_tokens": 4,
+          "total_tokens": 415
+        }
+      },
+      "background_chatter_messages_skipped_zero_llm": 1385
+    }
+  },
+  "observed_failure_taxonomy_on_stress_suite": {
+    "dual_role_relationship_ambiguity": 0,
+    "chat_ownership_ambiguity": 0,
+    "implicit_dialectal_loop_misses": 1,
+    "unquoted_zero_noun_slang_closures_tier0": 1,
+    "unquoted_zero_noun_slang_closures_hybrid_tier1": 0,
+    "false_done_claims": 0,
+    "false_proactive_interventions_on_leave": 0,
+    "invented_unsupported_goals": 0
+  }
+}
