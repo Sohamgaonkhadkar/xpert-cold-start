@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Tuple
@@ -24,6 +26,7 @@ from .schema_adapter import (
     validate_json_against_schema,
 )
 from .temporal_resolver import reconcile_open_loops
+from .submission_validator import validate_references
 
 
 def run_pipeline(
@@ -111,8 +114,12 @@ def run_pipeline(
     schema = load_schema(schema_path)
     serialized = serialize_output_for_schema(output, schema)
     schema_errors = validate_json_against_schema(serialized, schema)
-    if schema_errors:
-        repairs.extend(f"schema_warning: {e}" for e in schema_errors[:10])
+    # Check exactly the JSON representation that will be written, after repairs.
+    serialized = json.loads(json.dumps(serialized, ensure_ascii=False, allow_nan=False))
+    canonical = serialize_output_for_schema(output, load_schema())
+    reference_errors = validate_references(canonical, index)
+    if schema_errors or reference_errors:
+        raise ValueError("Output validation failed: " + "; ".join((schema_errors + reference_errors)[:20]))
     timings["08_validation_and_serialization"] = round(time.perf_counter() - t7, 4)
     timings["total_sec"] = round(time.perf_counter() - t_start, 4)
 
@@ -139,10 +146,18 @@ def run_pipeline(
     if output_path is not None:
         out_p = Path(output_path)
         out_p.parent.mkdir(parents=True, exist_ok=True)
-        out_p.write_text(
-            json.dumps(serialized, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        # A failed write must not leave a truncated submission or replace a valid file.
+        temp_name = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=out_p.parent,
+                                             prefix=".xpert-", suffix=".tmp", delete=False) as fh:
+                temp_name = fh.name
+                json.dump(serialized, fh, indent=2, ensure_ascii=False, allow_nan=False)
+                fh.write("\n")
+            os.replace(temp_name, out_p)
+        finally:
+            if temp_name and os.path.exists(temp_name):
+                os.unlink(temp_name)
 
     if telemetry_path is not None:
         tel_p = Path(telemetry_path)
@@ -160,6 +175,7 @@ def run_pipeline(
                     "dollars_per_1k_messages": output.telemetry.dollars_per_1k_messages,
                     "stage_timings_sec": output.telemetry.stage_timings_sec,
                     "stage_tokens": output.telemetry.stage_tokens,
+                    "usage_details": usage,
                     "evidence_summary": output.telemetry.evidence_summary,
                     "validation_repairs": output.telemetry.validation_repairs,
                     "counts": {

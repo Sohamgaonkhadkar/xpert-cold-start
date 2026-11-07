@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import json
 import os
 import random
@@ -12,6 +13,7 @@ import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -52,6 +54,28 @@ REASONING_MODEL_PREFIXES = ("o1", "o3", "o4", "gpt-5", "deepseek-r1", "qwq")
 THINK_BLOCK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
 CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 TRAILING_COMMA_RE = re.compile(r",\s*([}\]])")
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Never forward challenge data or bearer credentials to another URL.
+        return None
+
+
+class LLMHTTPError(RuntimeError):
+    """Provider error with machine-readable retry metadata; never contains credentials."""
+    def __init__(self, status, body, retry_after=None):
+        super().__init__(f"HTTP_{status}: {body[:400]}")
+        self.status = status
+        self.limit_source = None
+        try:
+            self.limit_source = (json.loads(body).get("error", {}).get("metadata") or {}).get("limit_source")
+        except (ValueError, AttributeError):
+            pass
+        try:
+            self.retry_after = max(0.0, float(retry_after)) if retry_after is not None else None
+        except ValueError:
+            self.retry_after = None
 
 
 def estimate_cost_usd(
@@ -171,9 +195,9 @@ class LLMClient:
         if not raw_base and env_oai_key and not env_llm_key:
             raw_base = "https://api.openai.com/v1"
         self.base_url = raw_base.rstrip("/")
-        self.max_concurrency = max(1, int(max_concurrency))
+        self.max_concurrency = max(1, int(os.environ.get("LLM_MAX_CONCURRENCY", max_concurrency)))
         self.timeout_sec = float(timeout_sec)
-        self.max_retries = max(1, int(max_retries))
+        self.max_retries = max(0, int(max_retries))
         self.mock_responder = mock_responder
         self.max_wall_sec = float(os.environ.get("LLM_MAX_WALL_SEC", "1380"))
         self.max_cost_usd = float(os.environ.get("LLM_MAX_COST_USD", "2.50"))
@@ -183,6 +207,19 @@ class LLMClient:
         is_reasoning = any(m_leaf.startswith(p) for p in REASONING_MODEL_PREFIXES)
 
         self._lock = threading.Lock()
+        self._request_slots = threading.BoundedSemaphore(self.max_concurrency)
+        self._request_context = threading.local()
+        self._reserved_cost_usd = 0.0
+        self._requests = 0
+        self._failures = 0
+        self._budget_skips = 0
+        self._estimated_usage_calls = 0
+        self._provider_cost_usd = 0.0
+        self._provider_cost_calls = 0
+        self._failure_types: Dict[str, int] = {}
+        self._provider_gate = threading.Lock()
+        self._provider_limited = False
+        self._cooldown_until = 0.0
         self._cache: Dict[str, Any] = {}
         self._stage_usage: Dict[str, StageUsage] = {}
         self._supports_json_mode: bool = True
@@ -204,12 +241,15 @@ class LLMClient:
             return self.base_url
         return f"{self.base_url}/chat/completions"
 
-    def _record_usage(self, stage: str, prompt_toks: int, completion_toks: int) -> None:
+    def _record_usage(self, stage: str, prompt_toks: int, completion_toks: int, provider_cost: Any = None) -> None:
         with self._lock:
             su = self._stage_usage.setdefault(stage, StageUsage())
             su.calls += 1
             su.prompt_tokens += max(0, int(prompt_toks))
             su.completion_tokens += max(0, int(completion_toks))
+            if isinstance(provider_cost, (int, float)) and math.isfinite(provider_cost) and provider_cost >= 0:
+                self._provider_cost_usd += provider_cost
+                self._provider_cost_calls += 1
 
     def usage_snapshot(self) -> Dict[str, Any]:
         with self._lock:
@@ -226,6 +266,12 @@ class LLMClient:
             c_tot = sum(v.completion_tokens for v in self._stage_usage.values())
             calls = sum(v.calls for v in self._stage_usage.values())
             chits = getattr(self, "_cache_hits", 0)
+            diagnostics = {"http_requests": self._requests, "failed_attempts": self._failures,
+                           "budget_skips": self._budget_skips,
+                           "estimated_usage_calls": self._estimated_usage_calls}
+            diagnostics["provider_cost_usd"] = self._provider_cost_usd if self._provider_cost_calls else None
+            diagnostics["provider_cost_calls"] = self._provider_cost_calls
+            diagnostics["failure_types"] = dict(self._failure_types)
         cost = estimate_cost_usd(self.model, p_tot, c_tot) if calls > 0 else 0.0
         return {
             "model": self.model if self.is_available else "deterministic-tier0",
@@ -236,6 +282,8 @@ class LLMClient:
             "total_tokens": p_tot + c_tot,
             "estimated_cost_usd": round(cost, 6),
             "stages": stages,
+            "usage_source": "mock_estimate" if self.mock_responder else "provider_or_estimate",
+            **diagnostics,
         }
 
     def _append_usage_log(self, model_name: str, data: Dict[str, Any], elapsed_sec: float) -> None:
@@ -251,6 +299,7 @@ class LLMClient:
                                 "prompt_tokens": usage.get("prompt_tokens"),
                                 "completion_tokens": usage.get("completion_tokens"),
                                 "seconds": round(elapsed_sec, 2),
+                                "cost": usage.get("cost"),
                             }
                         )
                         + "\n"
@@ -266,34 +315,36 @@ class LLMClient:
         }
         body_bytes = json.dumps(payload).encode("utf-8")
         started = time.time()
+        request_timeout = getattr(self._request_context, "timeout", self.timeout_sec)
 
         if self._http_client is not None:
-            resp = self._http_client.post(url, headers=headers, content=body_bytes)
-            if resp.status_code >= 400:
-                raise RuntimeError(f"HTTP_{resp.status_code}: {resp.text[:400]}")
+            resp = self._http_client.post(url, headers=headers, content=body_bytes, timeout=request_timeout)
+            if resp.status_code >= 300:
+                raise LLMHTTPError(resp.status_code, resp.text, resp.headers.get("Retry-After"))
             data = resp.json()
             self._append_usage_log(str(payload.get("model") or self.model), data, time.time() - started)
             return data
 
         if _HAS_HTTPX and httpx is not None:
-            with httpx.Client(timeout=self.timeout_sec) as client:
+            with httpx.Client(timeout=request_timeout) as client:
                 resp = client.post(url, headers=headers, content=body_bytes)
-                if resp.status_code >= 400:
-                    raise RuntimeError(f"HTTP_{resp.status_code}: {resp.text[:400]}")
+                if resp.status_code >= 300:
+                    raise LLMHTTPError(resp.status_code, resp.text, resp.headers.get("Retry-After"))
                 data = resp.json()
                 self._append_usage_log(str(payload.get("model") or self.model), data, time.time() - started)
                 return data
 
         req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
+            opener = urllib.request.build_opener(_NoRedirect())
+            with opener.open(req, timeout=request_timeout) as resp:
                 raw = resp.read().decode("utf-8")
                 data = json.loads(raw)
                 self._append_usage_log(str(payload.get("model") or self.model), data, time.time() - started)
                 return data
         except urllib.error.HTTPError as exc:
             err_body = exc.read().decode("utf-8", errors="replace")[:400]
-            raise RuntimeError(f"HTTP_{exc.code}: {err_body}") from exc
+            raise LLMHTTPError(exc.code, err_body, exc.headers.get("Retry-After")) from exc
 
     def complete_json(
         self,
@@ -307,7 +358,7 @@ class LLMClient:
             return None
 
         cache_key = hashlib.sha256(
-            f"{self.model}|{stage}|{system_prompt}|{user_prompt}".encode("utf-8")
+            f"{self.model}|{stage}|{max_tokens}|{system_prompt}|{user_prompt}".encode("utf-8")
         ).hexdigest()
         with self._lock:
             if cache_key in self._cache:
@@ -357,8 +408,44 @@ class LLMClient:
             if self._supports_json_mode:
                 payload["response_format"] = {"type": "json_object"}
 
+            # Reserve an estimated maximum request cost while concurrent calls are
+            # in flight. Recheck before EVERY retry, including capability fallbacks.
+            remaining = self.max_wall_sec - (time.monotonic() - self._created_at)
+            if remaining <= 0 or not self._request_slots.acquire(timeout=max(0, remaining)):
+                with self._lock:
+                    self._budget_skips += 1
+                return None
+            estimate_in = max(1, len((system_prompt + user_prompt).encode("utf-8")) // 3)
+            reservation = estimate_cost_usd(self.model, estimate_in, eff_max)
+            with self._lock:
+                spent = estimate_cost_usd(self.model,
+                    sum(v.prompt_tokens for v in self._stage_usage.values()),
+                    sum(v.completion_tokens for v in self._stage_usage.values()))
+                spent = max(spent, self._provider_cost_usd)
+                remaining = self.max_wall_sec - (time.monotonic() - self._created_at)
+                admitted = remaining > 0 and spent + self._reserved_cost_usd + reservation <= self.max_cost_usd
+                if admitted:
+                    self._reserved_cost_usd += reservation
+                    self._requests += 1
+                else:
+                    self._budget_skips += 1
+            if not admitted:
+                self._request_slots.release()
+                return None
+            self._request_context.timeout = min(self.timeout_sec, remaining)
             try:
-                data = self._post_http(payload)
+                # A provider's in-flight credit hold includes a settlement window.
+                # After that specific 402, serialize requests and share cooldowns.
+                with self._provider_gate if self._provider_limited else nullcontext():
+                    delay = min(max(0, self._cooldown_until - time.monotonic()),
+                                max(0, self.max_wall_sec - (time.monotonic() - self._created_at)))
+                    if delay:
+                        time.sleep(delay)
+                    remaining = self.max_wall_sec - (time.monotonic() - self._created_at)
+                    if remaining <= 0:
+                        return None
+                    self._request_context.timeout = min(self.timeout_sec, remaining)
+                    data = self._post_http(payload)
                 usage = data.get("usage") or {}
                 p_toks = usage.get("prompt_tokens")
                 c_toks = usage.get("completion_tokens")
@@ -379,14 +466,29 @@ class LLMClient:
                     p_toks = max(1, (len(system_prompt) + len(user_prompt)) // 4)
                 if c_toks is None:
                     c_toks = max(1, len(content) // 4)
-                self._record_usage(stage, int(p_toks), int(c_toks))
+                if usage.get("prompt_tokens") is None or usage.get("completion_tokens") is None:
+                    with self._lock:
+                        self._estimated_usage_calls += 1
+                self._record_usage(stage, int(p_toks), int(c_toks), usage.get("cost"))
 
                 parsed = extract_json_payload(content)
                 with self._lock:
                     self._cache[cache_key] = parsed
                 return parsed
             except RuntimeError as err:
+                with self._lock:
+                    self._failures += 1
+                    failure = re.search(r"HTTP_\d+", str(err))
+                    category = failure.group() if failure else type(err).__name__
+                    self._failure_types[category] = self._failure_types.get(category, 0) + 1
                 msg = str(err)
+                transient_credit_hold = isinstance(err, LLMHTTPError) and err.status == 402 and err.limit_source == "openrouter_in_flight_budget"
+                if transient_credit_hold:
+                    with self._lock:
+                        self._provider_limited = True
+                        self._cooldown_until = max(self._cooldown_until, time.monotonic() + (err.retry_after if err.retry_after is not None else 5.0))
+                    if attempt < self.max_retries:
+                        continue
                 # Provider capability downgrade on HTTP 400
                 if "HTTP_400" in msg:
                     if ("max_tokens" in msg or "max_completion_tokens" in msg) and not self._use_max_completion_tokens:
@@ -399,18 +501,26 @@ class LLMClient:
                     if "response_format" in msg and self._supports_json_mode:
                         self._supports_json_mode = False
                         continue
-                if attempt + 1 < self.max_retries and any(
+                if attempt < self.max_retries and any(
                     code in msg for code in ("HTTP_429", "HTTP_500", "HTTP_502", "HTTP_503", "HTTP_504")
                 ):
-                    backoff = (0.8 * (2**attempt)) + random.uniform(0.05, 0.35)
-                    time.sleep(backoff)
+                    backoff = err.retry_after if isinstance(err, LLMHTTPError) and err.retry_after is not None else (0.8 * (2**attempt)) + random.uniform(0.05, 0.35)
+                    time.sleep(min(backoff, max(0, self.max_wall_sec - (time.monotonic() - self._created_at))))
                     continue
                 return None
-            except Exception:
-                if attempt + 1 < self.max_retries:
-                    time.sleep(0.4 * (attempt + 1))
+            except Exception as err:
+                with self._lock:
+                    self._failures += 1
+                    category = type(err).__name__
+                    self._failure_types[category] = self._failure_types.get(category, 0) + 1
+                if attempt < self.max_retries:
+                    time.sleep(min(0.4 * (attempt + 1), max(0, self.max_wall_sec - (time.monotonic() - self._created_at))))
                     continue
                 return None
+            finally:
+                with self._lock:
+                    self._reserved_cost_usd -= reservation
+                self._request_slots.release()
         return None
 
     def complete_json_batch(

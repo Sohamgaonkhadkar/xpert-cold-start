@@ -268,7 +268,10 @@ def _score_dossier_tier0(
     scores["friend"] = 0.25  # Default social acquaintance base prior over rare circles (spouse/child/in-law) when zero cues fire
     evidence_ids: List[str] = []
 
-    raw_disp = dossier.display_name
+    # Preserve role/kinship cues from alternate saved names, rather than losing
+    # them whenever a more frequent spelling wins best_name().
+    aliases = sorted(index.person_names.get(dossier.person_id, {}))
+    raw_disp = " ".join(dict.fromkeys([dossier.display_name] + aliases))
     disp_norm = normalize_indic_for_matching(raw_disp) if not raw_disp.isascii() else raw_disp
     name_low = disp_norm.lower()
     name_tokens = set(tokenize(name_low, drop_stopwords=False))
@@ -306,6 +309,8 @@ def _score_dossier_tier0(
     if name_tokens & VENDOR_ROLE_WORDS or re.search(r"\bca\b|\badv\.?\b|\bdr\.?\b", name_low):
         scores["vendor"] += 5.5
         _collect_ev(VENDOR_CONTEXT_WORDS | VENDOR_ROLE_WORDS)
+    if re.search(r"\btrading\s+(?:company|co)\b", name_low):
+        scores["vendor"] += 5.5
     # Place-word in a personal contact name ("Ramesh Home", "Sunil Office", "Kishan Farmhouse") -> staff at that place
     if (
         len(name_tokens) >= 2
@@ -331,6 +336,8 @@ def _score_dossier_tier0(
         scores["partner"] += 5.0
     if "client" in name_tokens:
         scores["client"] += 5.5
+    if any(re.search(r"\bsiblings?\b", g, re.IGNORECASE) for g in dossier.group_names):
+        scores["sibling"] += 6.5
 
     # Disambiguate Indian "<FirstName> didi / bhaiya / tai" domestic staff vs real sibling!
     # A real older sister "Didi" never calls ME "didi"/"madam"/"sir" back while asking what to cook or reporting chores.

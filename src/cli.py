@@ -38,13 +38,17 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    output, _ = run_pipeline(
-        input_folder=Path(args.input_folder),
-        output_path=Path(args.output_path),
-        corrections_path=args.corrections,
-        schema_path=args.schema,
-        telemetry_path=args.telemetry,
-    )
+    try:
+        output, _ = run_pipeline(
+            input_folder=Path(args.input_folder),
+            output_path=Path(args.output_path),
+            corrections_path=args.corrections,
+            schema_path=args.schema,
+            telemetry_path=args.telemetry,
+        )
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"[xpert-cold-start] Failed: {exc}\n")
+        return 1
 
     if not args.quiet:
         tel = output.telemetry

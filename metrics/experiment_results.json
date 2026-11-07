@@ -1,9 +1,9 @@
 {
-  "benchmark_note": "Measured reproducibly on the 8-week, 1,407-message multilingual synthetic stress & 20-case adversarial benchmark (scripts/run_experiments.py), plus a 20,000-message / 320-chat scale benchmark. Official Arjun dev-set starter/data archives are not present in this sandbox; no official dev-set numbers are fabricated.",
+  "benchmark_note": "Synthetic stress and adversarial fixtures with a test-aware mock model and estimated tokens/cost. The custom /93 rubric is not the official /74 or dev /56 rubric. The 20,000-message /320-chat benchmark measures local compute only. See EVALUATION.md for genuine official/live measurements.",
   "experiments": [
     {
       "experiment": "exp0_naive_baseline",
-      "runtime_sec": 0.0656,
+      "runtime_sec": 0.1201,
       "total_messages": 1410,
       "tokens_estimated": 50977,
       "dollars_per_1k_messages": 0.0211,
@@ -258,7 +258,7 @@
     },
     {
       "experiment": "exp1_relationship_and_org_dossiers",
-      "runtime_sec": 0.105,
+      "runtime_sec": 0.1067,
       "total_messages": 1410,
       "llm_calls": 3,
       "stage_tokens": {
@@ -382,7 +382,7 @@
     },
     {
       "experiment": "exp2_multilingual_loop_discovery",
-      "runtime_sec": 0.0888,
+      "runtime_sec": 0.1068,
       "total_messages": 1410,
       "llm_calls": 4,
       "stage_tokens": {
@@ -406,13 +406,13 @@
         },
         "loop_discovery": {
           "calls": 1,
-          "prompt_tokens": 2226,
+          "prompt_tokens": 2230,
           "completion_tokens": 3,
-          "total_tokens": 2229
+          "total_tokens": 2233
         }
       },
-      "tokens_estimated": 45770,
-      "dollars_per_1k_messages": 0.01795,
+      "tokens_estimated": 45775,
+      "dollars_per_1k_messages": 0.01796,
       "score_86": 70.127,
       "score_93": 77.127,
       "breakdown": {
@@ -439,7 +439,7 @@
         "false_done_count": 1,
         "missed_done_count": 5,
         "false_interventions_on_leave": 6,
-        "dollars_per_1k_messages": 0.01795
+        "dollars_per_1k_messages": 0.01796
       },
       "errors": {
         "circles": [],
@@ -548,9 +548,9 @@
     },
     {
       "experiment": "exp3_arr_temporal_reconciliation",
-      "runtime_sec": 0.107,
+      "runtime_sec": 0.1054,
       "total_messages": 1410,
-      "llm_calls": 12,
+      "llm_calls": 11,
       "stage_tokens": {
         "relationship_inference": {
           "calls": 1,
@@ -572,30 +572,30 @@
         },
         "loop_discovery": {
           "calls": 1,
-          "prompt_tokens": 2226,
+          "prompt_tokens": 2230,
           "completion_tokens": 3,
-          "total_tokens": 2229
+          "total_tokens": 2233
         },
         "temporal_slow_verify": {
-          "calls": 8,
-          "prompt_tokens": 3384,
-          "completion_tokens": 34,
-          "total_tokens": 3418
+          "calls": 7,
+          "prompt_tokens": 3003,
+          "completion_tokens": 7,
+          "total_tokens": 3010
         }
       },
-      "tokens_estimated": 49662,
-      "dollars_per_1k_messages": 0.01949,
-      "score_86": 75.008,
-      "score_93": 82.008,
+      "tokens_estimated": 49205,
+      "dollars_per_1k_messages": 0.01929,
+      "score_86": 74.442,
+      "score_93": 81.442,
       "breakdown": {
         "circles_12": 12.0,
         "organisations_8": 8.0,
         "chats_8": 8.0,
         "goals_8": 8.0,
         "open_loops_found_14": 13.58,
-        "open_loops_closed_14": 14.0,
+        "open_loops_closed_14": 13.417,
         "intervention_10": 0.0,
-        "cost_12": 11.428,
+        "cost_12": 11.445,
         "execution_7": 7.0
       },
       "diagnostics": {
@@ -609,14 +609,21 @@
         "loop_recall": 0.96,
         "loop_f1": 0.96,
         "false_done_count": 0,
-        "missed_done_count": 0,
+        "missed_done_count": 1,
         "false_interventions_on_leave": 6,
-        "dollars_per_1k_messages": 0.01949
+        "dollars_per_1k_messages": 0.01929
       },
       "errors": {
         "circles": [],
         "chats": [],
-        "closures": [],
+        "closures": [
+          {
+            "title": "Email mutual NDA draft to Siddharth",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          }
+        ],
         "interventions": [
           {
             "title": "Manoj pick up Kabir from school and Maa for clinic",
@@ -683,9 +690,9 @@
     },
     {
       "experiment": "exp4_prism_intervention_policy",
-      "runtime_sec": 0.1214,
+      "runtime_sec": 0.1117,
       "total_messages": 1410,
-      "llm_calls": 13,
+      "llm_calls": 12,
       "stage_tokens": {
         "relationship_inference": {
           "calls": 1,
@@ -707,15 +714,15 @@
         },
         "loop_discovery": {
           "calls": 1,
-          "prompt_tokens": 2226,
+          "prompt_tokens": 2230,
           "completion_tokens": 3,
-          "total_tokens": 2229
+          "total_tokens": 2233
         },
         "temporal_slow_verify": {
-          "calls": 8,
-          "prompt_tokens": 3384,
-          "completion_tokens": 34,
-          "total_tokens": 3418
+          "calls": 7,
+          "prompt_tokens": 3003,
+          "completion_tokens": 7,
+          "total_tokens": 3010
         },
         "intervention_policy": {
           "calls": 1,
@@ -724,19 +731,19 @@
           "total_tokens": 415
         }
       },
-      "tokens_estimated": 50134,
-      "dollars_per_1k_messages": 0.01968,
-      "score_86": 84.993,
-      "score_93": 91.993,
+      "tokens_estimated": 49678,
+      "dollars_per_1k_messages": 0.01948,
+      "score_86": 84.426,
+      "score_93": 91.426,
       "breakdown": {
         "circles_12": 12.0,
         "organisations_8": 8.0,
         "chats_8": 8.0,
         "goals_8": 8.0,
         "open_loops_found_14": 13.58,
-        "open_loops_closed_14": 14.0,
+        "open_loops_closed_14": 13.417,
         "intervention_10": 10.0,
-        "cost_12": 11.413,
+        "cost_12": 11.429,
         "execution_7": 7.0
       },
       "diagnostics": {
@@ -750,22 +757,29 @@
         "loop_recall": 0.96,
         "loop_f1": 0.96,
         "false_done_count": 0,
-        "missed_done_count": 0,
+        "missed_done_count": 1,
         "false_interventions_on_leave": 0,
-        "dollars_per_1k_messages": 0.01968
+        "dollars_per_1k_messages": 0.01948
       },
       "errors": {
         "circles": [],
         "chats": [],
-        "closures": [],
+        "closures": [
+          {
+            "title": "Email mutual NDA draft to Siddharth",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          }
+        ],
         "interventions": []
       }
     },
     {
       "experiment": "exp5_cost_cascaded_optimization",
-      "runtime_sec": 0.0974,
+      "runtime_sec": 0.1025,
       "total_messages": 1410,
-      "llm_calls": 13,
+      "llm_calls": 12,
       "stage_tokens": {
         "relationship_inference": {
           "calls": 1,
@@ -787,15 +801,15 @@
         },
         "loop_discovery": {
           "calls": 1,
-          "prompt_tokens": 2226,
+          "prompt_tokens": 2230,
           "completion_tokens": 3,
-          "total_tokens": 2229
+          "total_tokens": 2233
         },
         "temporal_slow_verify": {
-          "calls": 8,
-          "prompt_tokens": 3384,
-          "completion_tokens": 34,
-          "total_tokens": 3418
+          "calls": 7,
+          "prompt_tokens": 3003,
+          "completion_tokens": 7,
+          "total_tokens": 3010
         },
         "intervention_policy": {
           "calls": 1,
@@ -804,17 +818,17 @@
           "total_tokens": 415
         }
       },
-      "tokens_estimated": 9750,
-      "dollars_per_1k_messages": 0.00301,
-      "score_86": 85.58,
-      "score_93": 92.58,
+      "tokens_estimated": 9346,
+      "dollars_per_1k_messages": 0.00287,
+      "score_86": 84.997,
+      "score_93": 91.997,
       "breakdown": {
         "circles_12": 12.0,
         "organisations_8": 8.0,
         "chats_8": 8.0,
         "goals_8": 8.0,
         "open_loops_found_14": 13.58,
-        "open_loops_closed_14": 14.0,
+        "open_loops_closed_14": 13.417,
         "intervention_10": 10.0,
         "cost_12": 12.0,
         "execution_7": 7.0
@@ -830,14 +844,21 @@
         "loop_recall": 0.96,
         "loop_f1": 0.96,
         "false_done_count": 0,
-        "missed_done_count": 0,
+        "missed_done_count": 1,
         "false_interventions_on_leave": 0,
-        "dollars_per_1k_messages": 0.00301
+        "dollars_per_1k_messages": 0.00287
       },
       "errors": {
         "circles": [],
         "chats": [],
-        "closures": [],
+        "closures": [
+          {
+            "title": "Email mutual NDA draft to Siddharth",
+            "issue": "missed_done",
+            "predicted": "open",
+            "expected": "done"
+          }
+        ],
         "interventions": []
       }
     }
@@ -889,11 +910,11 @@
     "input_ordering_shuffle_identical": true,
     "identity_permutation": {
       "scores_across_3_seeds": [
-        85.58,
-        85.58,
-        85.58
+        84.997,
+        84.997,
+        84.997
       ],
-      "mean_score_86": 85.58,
+      "mean_score_86": 84.997,
       "max_spread": 0.0
     },
     "temporal_truncation": {
@@ -904,28 +925,28 @@
       "consistent": true
     },
     "seed_ablation": {
-      "full_seed_20pct": 85.58,
-      "half_seed_10pct": 84.66,
-      "zero_seed_0pct": 84.66
+      "full_seed_20pct": 84.997,
+      "half_seed_10pct": 84.077,
+      "zero_seed_0pct": 84.077
     },
     "hidden_persona_rename_invariance": {
-      "score_when_me_is_karan_and_colleague_is_arjun": 85.58,
+      "score_when_me_is_karan_and_colleague_is_arjun": 84.997,
       "colleague_arjun_loop_m137_owner": "p_colleague_1"
     },
     "scale_20k_messages_320_chats": {
       "messages": 20000,
       "chats": 320,
-      "local_wall_sec": 1.035,
-      "headroom_vs_30min_limit_x": 1739.1,
-      "llm_calls": 15,
-      "prompt_tokens": 14664,
-      "completion_tokens": 315,
-      "estimated_total_usd_for_20k_msgs": 0.00637,
-      "dollars_per_1k_msgs_at_20k_scale": 0.00032
+      "local_wall_sec": 1.187,
+      "runtime_scope": "local compute with mock model; no network latency",
+      "llm_calls": 14,
+      "prompt_tokens": 13411,
+      "completion_tokens": 183,
+      "estimated_total_usd_for_20k_msgs": 0.00566,
+      "dollars_per_1k_msgs_at_20k_scale": 0.00028
     },
     "ambiguity_cascade_audit": {
       "total_messages_ingested": 1410,
-      "total_llm_calls_triggered": 13,
+      "total_llm_calls_triggered": 12,
       "stage_tokens": {
         "relationship_inference": {
           "calls": 1,
@@ -947,15 +968,15 @@
         },
         "loop_discovery": {
           "calls": 1,
-          "prompt_tokens": 2226,
+          "prompt_tokens": 2230,
           "completion_tokens": 3,
-          "total_tokens": 2229
+          "total_tokens": 2233
         },
         "temporal_slow_verify": {
-          "calls": 8,
-          "prompt_tokens": 3384,
-          "completion_tokens": 34,
-          "total_tokens": 3418
+          "calls": 7,
+          "prompt_tokens": 3003,
+          "completion_tokens": 7,
+          "total_tokens": 3010
         },
         "intervention_policy": {
           "calls": 1,
@@ -972,7 +993,7 @@
     "chat_ownership_ambiguity": 0,
     "implicit_dialectal_loop_misses": 1,
     "unquoted_zero_noun_slang_closures_tier0": 1,
-    "unquoted_zero_noun_slang_closures_hybrid_tier1": 0,
+    "unquoted_zero_noun_slang_closures_hybrid_tier1": 1,
     "false_done_claims": 0,
     "false_proactive_interventions_on_leave": 0,
     "invented_unsupported_goals": 0

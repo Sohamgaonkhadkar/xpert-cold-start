@@ -1,43 +1,75 @@
-# Xpert Cold Start Challenge — Technical Write-Up (`Dossier-ARR-PRISM`)
+# Xpert Cold Start: Dossier-ARR-PRISM
 
-## 1. How It Works
-Personal life on Indian WhatsApp spans overlapping worlds—household, extended family, housing society, holiday home, core company, side venture, and external clients—across English, native Devanagari Hindi, native Bengali, and Romanized Hinglish/Banglish. Off-the-shelf memory pipelines struggle here for two reasons: write-time LLM summarization erases speaker attribution and reply chains in multi-party chats (*GroupMemBench*, 2026), while symmetric classifiers incur heavy penalties under asymmetric scoring (`false done` > `missed done`, and false `assist`/`remind` on `leave`).
+## Focus and approach
+We prioritize people and organisation context, open-loop discovery, conservative closure,
+and restraint in assistant interventions. A false completion hides work; an intrusive
+reminder can make an otherwise useful assistant unwelcome. We preserve the existing
+Python architecture and use selective model inference rather than an expensive
+multi-agent system. The submission is a batch JSON program, with no frontend or database.
 
-**`Dossier-ARR-PRISM`** separates **immutable verbatim evidence** from **derived asymmetric-loss decisions** across five stages:
-1. **Timezone- & Script-Aware Index (`data_loader`, `indic_normalizer`, `conversation_index`):** Deterministically sorts JSONL inputs by `(ts, id)`, preserves local IST (`+05:30`) midnight calendar dates, dynamically infers `ME`'s first-name aliases from 1:1 vocatives/replies (zero hardcoded persona names), normalizes native Devanagari/Bengali Unicode scripts and digits (`३ नवंबर` $\rightarrow$ `3 november`) with a zero-ASCII-overhead fast path (defeating Python `re`'s combining-matra `\b` bug), and indexes turns via **two-phase inverted BM25 + lazy-cached character 3/4-gram TF-IDF** (`~1.04s` across 20,000 messages and 320 chats in the refreshed full-scale audit).
-2. **Conditioned Contact Dossiers & Joint Org/Chat Routing (`relationship_inference`, `organisation_inference`):** Compresses contacts into `<180`-token **Contact Dossiers** combining phonebook tags (`- Org`, `@domain`, kinship/role suffixes), 1:1 vs. group topology, distinct-term multilingual cues, and **domain-conditioned seed propagation** (`seed.json` locked). School-parent (`Class 4B`) and RWA (`Society`) groups block homophily bleed; external bridge groups (`ClientCo x MyOrg`) bind to the `client` person even under abbreviated `@domain` handles; holiday-home caretakers stay isolated from `Home`; and `staff` care targets (`supports_people`) map via directive care-verb co-occurrence.
-3. **Precision-First Goal Extraction (`goal_extraction`):** Preserves `seed.json` goals, filters `ME`-endorsed habit/milestone/experience statements, excludes `staff`/`vendor` operational errands and idle wishes (*"I wish I lived in..."*), deduplicates by `(area, topic)`, and caps output at $\le 10$ message-grounded goals.
-4. **Anchor–Retrieve–Reconcile (ARR) Loop Engine (`loop_extraction`, `temporal_resolver`):** Pre-compiled C-level date gates resolve explicit and relative dates (*"tomorrow"*, *"kal subah"*, *"आगामीকাল"*) against `origin_msg.ts`, capture time-anchored indirect obligations (*"next month tak kuch sochna padega"*), and link Whisper ASR phonetic variants (`chalan`/`challan`, `North Star`/`Northstar`). Four **Asymmetric Closure Guards** govern status: (i) expired `due_date` never implies `done`; (ii) bare *"Ok"*/*"हाँ"*/*"হ্যাঁ"*/*"👍"* stays `open` unless quoting a completion check; (iii) group bystanders, unrelated `quoted_id` threads, and forwarded unpaid bill PDFs (`kind="document"`) cannot close prior loops; and (iv) later *"still pending / nahi hua"* reopens premature closures. Uncertain trails escalate to a batched slow-pass LLM verifier with an 8-day relative calendar strip.
-5. **PRISM Intervention Gate & Live Corrections (`intervention_policy`, `corrections`, `evidence_validator`):** Minimizes expected cost $\sum_y P(y|x)L(a,y)$ ($L(\text{assist}|\text{leave})=3.20$, $L(\text{remind}|\text{leave})=2.85$ vs. $1.05$–$1.15$ miss cost), intervening only when $P(\text{leave}|x)<0.26$. Enforces `leave(someone_elses)` on non-`ME`/staff tasks, `leave(personal)` on intimate or soft household musings, and `needs_approval=True` on send/pay/book actions. Live-interview overrides cascade *only* to directly affected loops.
+Dossiers combine saved-name aliases, seed relationships, chat membership and short
+speaker-attributed message samples. Organisation routing separates home and work,
+uses member overlap, and guards against treating external client businesses as owned
+organisations. Goals require message evidence and user endorsement, with at most ten.
 
-## 2. What We Tried: Official `check.py` Verification, Competitor Audit & Controlled Ablations
-We benchmarked against the official `starter.zip` validator/scorer (`schema.json`, `check.py`, `example/`, `$LLM_USAGE_LOG`), direct public Cold Start competitor **`CodeInfinity1/cold-start`** (`50.6 / 74` on `example/`, `27.6 / 56` on `data/dev`), and adjacent OSS loop engines (`kaarizhussain/open-loops`, `OpenExecutive`, `troth`). A live GitHub API re-check on **2026-11-07** found no newer matching submissions: CodeInfinity1 last pushed Nov 3, Remycooks/Xpert_Challenge last pushed Nov 4 (v1.1 rules-only, with empty goals/loops), and dipgarg0011/Xpert-Cold-Start is still empty. On the official `example/` benchmark, `Dossier-ARR-PRISM` achieves **`74.0 / 74` (`1.00` across all 7 categories, `0` validation errors)** in both **seeded** and **`0%`-seed** (hidden-test simulation) modes—lifting our pre-upgrade wire-format baseline from `40.5 / 74` to `74.0 / 74` (`+23.4` pts ahead of `CodeInfinity1`). On our 8-week **1,410-message** multilingual stress & 20-case adversarial benchmark (`scripts/run_experiments.py`) and **20,000-message / 320-chat** scale suite:
+Anchor-Retrieve-Reconcile keeps original turns and searches chronological local and
+cross-chat trails for each commitment, request, deadline or decision. Dates anchor to
+message time. Passing a due date never means completion; acknowledgements, future
+intent, partial progress and unrelated speakers cannot establish execution. Explicit
+cancellation can drop a loop; later failure evidence can reopen it. We enumerate all
+history: only the official checker knows the hidden scoring cutoff.
 
-| Experiment (`scripts/run_experiments.py`, $N=1,410$ msgs) | Circles (12) | Orgs (8) | Chats (8) | Goals (8) | Found (14) | Closed (14) | Help (10) | Cost (12) | Auto `/86` | Total `/93` | Tokens | `$/1k` Msgs |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Exp 0:** Naive Baseline | 0.48 | 0.00 | 5.68 | 3.00 | 9.24 | 9.62 | 0.00 | 11.30 | 39.33 | 46.33 | 50,977 | `$0.02110` |
-| **Exp 1:** `+` Conditioned Dossiers & Org/Chat Routing | 12.00 | 8.00 | 8.00 | 8.00 | 9.24 | 9.62 | 0.00 | 11.66 | 66.53 | 73.53 | 43,229 | `$0.01696` |
-| **Exp 2:** `+` Multilingual Loops & `msg.ts` Dates | 12.00 | 8.00 | 8.00 | 8.00 | 13.43 | 9.13 | 0.00 | 11.57 | 70.13 | 77.13 | 45,770 | `$0.01795` |
-| **Exp 3:** `+` ARR Cross-Chat Closure Guards | 12.00 | 8.00 | 8.00 | 8.00 | 13.58 | 14.00 | 0.00 | 11.43 | 75.01 | 82.01 | 49,662 | `$0.01949` |
-| **Exp 4:** `+` PRISM Asymmetric Intervention Gate | 12.00 | 8.00 | 8.00 | 8.00 | 13.58 | 14.00 | 10.00 | 11.41 | 84.99 | 91.99 | 50,134 | `$0.01968` |
-| **Exp 5:** `+` 3-Tier Cost Cascade (`Dossier-ARR-PRISM`) | **12.00** | **8.00** | **8.00** | **8.00** | **13.58** | **14.00** | **10.00** | **12.00** | **85.58** | **92.58** | **9,750** | **`$0.00301`** |
-| *Ablation:* Pure Tier-0 Deterministic (`0` LLM calls) | 12.00 | 8.00 | 8.00 | 8.00 | 13.58 | 13.42 | 10.00 | 12.00 | 85.00 | 92.00 | 0 | `$0.00000` |
+PRISM uses an asymmetric loss gate for assist/remind/leave. These loss values and
+probabilities are hand-set design choices, not empirically calibrated posteriors.
+External actions require approval; private preparation can proceed without it.
+Corrections override individual relationships, chat owners and task owners/statuses.
+Closing a corrected task requires actual later message evidence.
 
-**High-impact profiling, competitor & zero-seed fixes:** (1) *Zero-seed (`0%`) self-discovery (`75.48 -> 84.66 / 86`):* unseeded workplace brand/team discovery, `<FirstName> didi/bhaiya` domestic-staff vs. sibling disambiguation, internal colleague protection against vendor-keyword bleed, institutional 1:1 chat org routing, and collective `"the kids"` `looks_after` resolution. (2) *2-turn conversational goals & thread-level loop dedup:* captures multi-turn goals (`half marathon`, `Coorg trip`) while rejecting friend solo goals (`0` invented goals), merges 1:1 ask+reply promises and rare-entity nudges/revisions, and enforces post-LLM safety guards on bare acks/deferrals (`0` `false_done`). (3) *Pass-6 competitor-informed hardening:* added check.py-safe departed-sender filtering and Notes-to-Self ownership, numeric WhatsApp mention resolution, large-group core-member overlap/lurker guards, CamelCase org acronyms, place-named staff, and media/date false-positive guards. (4) *Scale & invariance:* 20k-message / 320-chat run completes in **`1.04s`** with **14,664 prompt tokens**; JSONL shuffle, 3-seed permutation, and `ME="Karan"` + colleague `"Arjun"` all score **`85.58 ± 0.00`**.
+## Evaluation and cost
+On 7 November 2026 we downloaded the official starter and dev archives directly from
+the challenge. Schema, checker and example match after newline normalization. Dev has
+4,502 messages and 138 chats. Goals and interventions are **not labelled** there, so
+its denominator is 56, whereas the worked example scores all seven categories /74.
 
-## 3. What Still Breaks (Honest Failure Analysis)
-1. **Pure pragmatic implicature without obligation/date cues (`4.0%` recall miss, `1/25`):** Purely descriptive observations (*"Last year's balcony fairy lights looked pretty dim when we unpacked the box"*) carry zero modal, request, or temporal markers and stay below Tier-0's precision floor to avoid flooding loops with casual remarks.
-2. **Multi-loop 1:1 DM cryptic closures in Tier-0 (`4.0%` Tier-0 miss):** When a 1:1 DM has *two* active tasks (walkthrough + NDA) and the owner sends an unquoted *"All sorted!"*, Tier-0 safely keeps it `open` (`85.00/86`), relying on Tier-1 `temporal_slow_verify` (`85.58/86`) to disambiguate.
-3. **Dual-role relatives without seed/correction:** A cousin acting as a GST vendor creates single-circle schema tension unless seeded or overridden via `src/corrections.py`.
+| Deterministic run | Official example /74 | Official dev /56 | Calls / tokens |
+|---|---:|---:|---:|
+| Original Arena | 74.00 | 18.68 | 0 / 0 |
+| Hardened implementation | 74.00 | 19.61 | 0 / 0 |
 
-## 4. Cost per 1,000 Messages
-Every LLM call automatically appends `{model, prompt_tokens, completion_tokens, seconds}` to `$LLM_USAGE_LOG` (`usage.jsonl`) per the official `starter.zip` contract. Tier-0 skips **98.2%** (`1,385/1,410`) of routine chatter on dense chats—and **99.8%** at 20k-message / 320-chat scale (`14,979` total tokens = **`$0.00032 / 1k msgs`**, **`$0.0064` total for 20k msgs**):
+The original dev run took 7.00 seconds; the hardened run took 8.59 seconds on Windows.
+Both cost $0 per 1,000 messages because neither called a model. Real-model quality,
+provider token counts and network runtime remain unverified until credentials are
+available to the executing process. No production model is selected on synthetic
+scores. The evaluator uses OpenRouter; the submitted identifier must be the exact ID
+we actually test before submission.
 
-| Stage (Dense $N=1,410$ Suite) | Calls | Prompt Toks | Comp Toks | Share | `$/1k` Msgs (`gpt-4.1-mini`)* |
-|---|---:|---:|---:|---:|---:|
-| People & Chat Dossiers | 2 | 2,887 | 244 | 30.5% | `$0.00109` |
-| Goals + Loop Discovery | 2 | 2,782 | 4 | 29.4% | `$0.00079` |
-| Slow Closure + Intervention | 9 | 3,795 | 38 | 40.1% | `$0.00112` |
-| **Total (Dense `1.4k` / Full `20k` Scale)** | **13 / 15** | **9,464 / 14,664** | **286 / 315** | **100%** | **`$0.00301` / `$0.00032` per 1k** |
+Historical synthetic results (92.58/93 under a custom rubric) used a test-aware mock
+responder with estimated tokens. They establish regression behavior only. They are
+not official dev scores, live-model measurements, hidden-set estimates or rankings.
+The 20,000-message/320-chat synthetic tests likewise measure local compute with sparse
+tasks; they do not establish a 30-minute live-model bound.
 
-*\*At `gpt-4.1-mini` (`$0.40/$1.60` per 1M tokens); `gpt-4o-mini`: **`$0.00136/1k`** (`$0.00014/1k` at 20k scale); flagship `gpt-4.1`: **`$0.0150/1k`**. Full 20k-message run: **`~$0.006–$0.06`**, **`1.04s` local compute (`<12s` with live API)**.*
+## Where it fails
+In genuine dev evaluation, loop precision improved from 7.25% to 7.84%, recall from
+37.84% to 43.24%, and F1 from 12.17% to 13.28%. There were 32 matched loops among
+408 predictions against 74 labels, one false DONE, 16 missed completions among matched
+loops and five incorrect task owners. The official dev README warns that loop labels
+are incomplete; unmatched predictions are not all necessarily invalid tasks.
+
+Unseeded circle accuracy is 53.66%. Sparse contacts, dual roles, family discussions
+containing work vocabulary, implicit obligations, short unquoted closures and missing
+cross-chat topic links remain weak. Some labels accept extremely indirect messages.
+We do not hardcode their identities or duplicate tasks to exploit repeated answer
+sources. Dev goals and intervention errors cannot be measured, and hidden performance
+is unknown. Better live-model coverage must be demonstrated rather than assumed.
+
+## Engineering decisions
+Inference never reads answer files. The client sends only to the configured model
+endpoint, caches repeated requests, limits concurrency, rechecks deadlines on retries,
+and reserves estimated in-flight request cost. Provider-reported cost, when supplied,
+is recorded separately from price-table estimates. Estimates cannot guarantee billing
+for failures where a provider omits usage. Invalid output fails with a nonzero exit;
+validated output is replaced atomically. Offline CI covers clean dependency installation,
+regressions, official example, schema/references and paths with spaces. Private datasets,
+runtime output and credentials are ignored. Remaining live-model and Linux checks are
+reported honestly in EVALUATION.md; final submission requires user approval.

@@ -46,7 +46,7 @@ WEEKDAY_MAP: Dict[str, int] = {
 
 # Self-commitment patterns (speaker promises action)
 SELF_COMMIT_RE = re.compile(
-    r"\b(i will|i'll|ill\b|i am going to|i'm going to|i'm on it|i am on it|on it\b|let me|allow me to|will send|will share|"
+    r"\b(i will|i'll|ill\b|we will|we'll|i am going to|i'm going to|i'm on it|i am on it|on it\b|let me|allow me to|will complete|will send|will share|"
     r"will check|will call|will book|will pay|will transfer|will update|will review|will do|"
     r"sending by|sharing by|main\s+(?:kal\s+|aaj\s+)?[a-z]+\s+(?:dunga|dungi|karunga|karungi|leta|leti|bhejta|bhejti)|"
     r"kar\s+dunga|kar\s+dungi|kar\s+lunga|kar\s+lungi|le\s+lunga|le\s+lungi|pick\s+kar\s+lunga|drop\s+kar\s+dunga|"
@@ -58,7 +58,7 @@ SELF_COMMIT_RE = re.compile(
 
 # Request / directive patterns (speaker asks addressee to act)
 DIRECTIVE_REQUEST_RE = re.compile(
-    r"\b(please\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can you|could you|would you|need you to|"
+    r"\b(please\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can\s+(?:you|u)|could\s+(?:you|u)|would\s+(?:you|u)|need (?:you to|your help to)|"
     r"don't forget to|dont forget to|remember to|make sure to|kindly\s+[a-z]+|"
     r"let me know|lmk|batao|batana|bata dena|tell me|update me|keep me posted|inform me|"
     r"bhej\s+dena|bhej\s+do|kar\s+dena|kar\s+do|de\s+dena|le\s+aana|chod\s+dena|chhor\s+dena|"
@@ -360,19 +360,13 @@ def extract_open_loop_candidates(
     ledger: EvidenceLedger,
 ) -> List[LoopCandidate]:
     """Discover, normalize, and deduplicate candidate open loops across chats."""
-    span_days = (index.anchor_ts - index.min_ts).days
-    # Official rule: on multi-month hidden data (>16 days), open loops are scored on the last two weeks;
-    # on <=16-day dev/test sets, all messages fall within the active window.
-    scoring_cutoff = (
-        index.anchor_ts - timedelta(days=14)
-        if span_days > 16
-        else index.min_ts - timedelta(seconds=1)
-    )
+    # The official checker alone knows loops_scored_from. Enumerate all loops;
+    # earlier context can identify commitments repeated in the scoring window.
+    scoring_cutoff = index.min_ts - timedelta(seconds=1)
 
     raw_candidates: List[LoopCandidate] = []
     consumed_msg_ids: Set[str] = set()
 
-    pre_cutoff_digit_floor = scoring_cutoff - timedelta(days=8)
 
     for msg in index.messages:
         if msg.id in consumed_msg_ids:
@@ -385,15 +379,7 @@ def extract_open_loop_candidates(
         if BIRTHDAY_WISH_RE.match(match_body) and not BIRTHDAY_ACTION_RE.search(match_body):
             continue
 
-        # Fast pre-cutoff filter: messages >8 days before scoring_cutoff can ONLY carry over via an explicit numeric date!
-        if msg.ts < scoring_cutoff:
-            if msg.ts < pre_cutoff_digit_floor and not any(ch.isdigit() for ch in match_body):
-                continue
-            due_date = resolve_due_date(match_body, msg.ts)
-            if not due_date or due_date < scoring_cutoff.date().isoformat():
-                continue
-        else:
-            due_date = None  # Lazily compute only if salience check passes or document/image_caption!
+        due_date = None  # Lazily resolve after salience checks.
 
         et = index.enriched_by_id.get(msg.id)
         q_msg = et.quoted_message if et else None
@@ -403,6 +389,13 @@ def extract_open_loop_candidates(
 
         has_self_commit = bool(SELF_COMMIT_RE.search(match_body))
         has_directive = bool(DIRECTIVE_REQUEST_RE.search(match_body))
+        # Unprefixed imperatives from ME are common in personal exports. Keep
+        # this anchored to action verbs rather than matching nouns such as 'fan'.
+        if msg.sender_id == USER_ID and re.match(
+            r"^(?:text|order|buy|send|share|book|pay|bring|call)\s+(?:me\s+|him\b|her\b|the\s+|a\s+|an\s+|\d)",
+            match_body, re.IGNORECASE,
+        ):
+            has_directive = True
         has_question = bool(QUESTION_CUE_RE.search(match_body))
         has_indirect_ob = bool(INDIRECT_OBLIGATION_RE.search(match_body)) and bool(
             TIME_HORIZON_ANCHOR_RE.search(match_body)

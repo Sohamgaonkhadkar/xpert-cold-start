@@ -147,7 +147,7 @@ def build_hard_8week_stress_benchmark(dest_dir: Path, seed_rng: int = 42) -> Pat
         {"id": "mh05", "chat_id": "c_dm_tutor", "sender_id": "ME", "sender_name": "ME", "ts": "2026-10-26T09:00:00", "kind": "text", "body": "I'll transfer the October maths fee tonight.", "quoted_id": "mh03"},
         {"id": "mh06", "chat_id": "c_dm_tutor", "sender_id": "ME", "sender_name": "ME", "ts": "2026-10-27T11:30:00", "kind": "text", "body": "Sorted from HDFC!", "quoted_id": None},
         # Bystander group closure trap: Dev says "done" on a different vendor invoice in Zephyr Core Team while Rahul's AWS logs loop (m137) is open!
-        {"id": "mh07", "chat_id": "c_grp_zephyr", "sender_id": "p_colleague_2", "sender_name": "Sneha - Zephyr", "ts": "2026-10-29T13:15:00", "kind": "text", "body": "Done from my side, uploaded the vendor invoice.", "quoted_id": None},
+        {"id": "mh07", "chat_id": "c_grp_zephyr_core", "sender_id": "p_colleague_2", "sender_name": "Sneha - Zephyr", "ts": "2026-10-29T13:15:00", "kind": "text", "body": "Done from my side, uploaded the vendor invoice.", "quoted_id": None},
         # Zero-rail cryptic unquoted completion ("All sorted!" 30h later with zero shared nouns or bank rails -> Tier-0 stays open, Tier-1 LLM verifies done!)
         {"id": "mh08", "chat_id": "c_dm_siddharth", "sender_id": "p_subtle_client", "sender_name": "Siddharth Rao", "ts": "2026-10-27T15:00:00", "kind": "text", "body": "Could you email across the mutual NDA draft by tomorrow?", "quoted_id": None},
         {"id": "mh09", "chat_id": "c_dm_siddharth", "sender_id": "ME", "sender_name": "ME", "ts": "2026-10-28T20:30:00", "kind": "text", "body": "All sorted!", "quoted_id": None},
@@ -261,7 +261,7 @@ def build_hard_8week_stress_benchmark(dest_dir: Path, seed_rng: int = 42) -> Pat
 
 
 def simulated_smart_llm_responder(stage: str, sys_p: str, usr_p: str) -> Dict[str, Any]:
-    """Deterministic local LLM simulator used ONLY for token/cost cascade accounting when no live API key is set."""
+    """Test-aware mock for regression/protocol accounting, never model-quality evidence."""
     if stage == "relationship_inference":
         preds = []
         for block in usr_p.split("--- PERSON ")[1:]:
@@ -271,8 +271,6 @@ def simulated_smart_llm_responder(stage: str, sys_p: str, usr_p: str) -> Dict[st
             top_c = m_prior.split(",")[0].split(":")[0].strip()
             if "spoke to our board" in block and "walkthrough" in block:
                 top_c = "client"
-            elif "Parivar" in block and "Deepak" in block:
-                top_c = "relative"
             preds.append({"id": pid, "circle": top_c, "supports_people": [], "confidence": 0.82, "evidence": []})
         return {"predictions": preds}
     if stage == "chat_ownership":
@@ -280,10 +278,12 @@ def simulated_smart_llm_responder(stage: str, sys_p: str, usr_p: str) -> Dict[st
     if stage == "loop_discovery":
         return {"loops": []}
     if stage == "temporal_slow_verify":
-        if "Sorted from HDFC" in usr_p:
-            return {"status": "done", "closure_message_id": "mh06", "owner": "ME", "due_date": "2026-10-26", "confidence": 0.88}
-        if "All sorted!" in usr_p and "mh09" in usr_p:
-            return {"status": "done", "closure_message_id": "mh09", "owner": "ME", "due_date": "2026-10-28", "confidence": 0.86}
+        for line in usr_p.splitlines():
+            if "sorted from " in line.lower() or "all sorted!" in line.lower():
+                match = re.match(r"\[([^|]+)\s*\|", line)
+                if match:
+                    return {"status": "done", "closure_message_id": match.group(1).strip(),
+                            "owner": "ME", "due_date": None, "confidence": 0.88}
         return {}
     if stage == "intervention_policy":
         return {"decisions": []}
@@ -343,9 +343,8 @@ def run_ablation_stage(
         orgs, chats = infer_organisations_and_chats(index, people_map, llm, ledger)
     else:
         # Baseline relation fallback
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-            base_p = run_naive_baseline(data_dir, tf.name)
-            Path(tf.name).unlink(missing_ok=True)
+        with tempfile.TemporaryDirectory() as temporary:
+            base_p = run_naive_baseline(data_dir, Path(temporary) / "baseline.json")
         from src.models import ChatPrediction, OrganisationPrediction, PersonPrediction
 
         people_map = {
@@ -403,9 +402,8 @@ def run_ablation_stage(
                     )
                 )
     else:
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-            base_p = run_naive_baseline(data_dir, tf.name)
-            Path(tf.name).unlink(missing_ok=True)
+        with tempfile.TemporaryDirectory() as temporary:
+            base_p = run_naive_baseline(data_dir, Path(temporary) / "baseline.json")
         from src.models import OpenLoopPrediction
 
         loops = [
@@ -682,7 +680,7 @@ def run_robustness_suites(stress_dir: Path) -> Dict[str, Any]:
             "messages": out_20k.telemetry.total_messages,
             "chats": 320,
             "local_wall_sec": sec_20k,
-            "headroom_vs_30min_limit_x": round(1800.0 / max(0.01, sec_20k), 1),
+            "runtime_scope": "local compute with mock model; no network latency",
             "llm_calls": out_20k.telemetry.llm_calls,
             "prompt_tokens": out_20k.telemetry.prompt_tokens,
             "completion_tokens": out_20k.telemetry.completion_tokens,
@@ -728,9 +726,9 @@ def main() -> int:
     final_exp = experiments[-1]
     summary = {
         "benchmark_note": (
-            "Measured reproducibly on the 8-week, 1,407-message multilingual synthetic stress & 20-case adversarial benchmark "
-            "(scripts/run_experiments.py), plus a 20,000-message / 320-chat scale benchmark. Official Arjun dev-set starter/data "
-            "archives are not present in this sandbox; no official dev-set numbers are fabricated."
+            "Synthetic stress and adversarial fixtures with a test-aware mock model and estimated tokens/cost. "
+            "The custom /93 rubric is not the official /74 or dev /56 rubric. The 20,000-message /320-chat "
+            "benchmark measures local compute only. See EVALUATION.md for genuine official/live measurements."
         ),
         "experiments": experiments,
         "tier0_zero_token_ablation": {

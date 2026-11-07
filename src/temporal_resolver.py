@@ -294,6 +294,10 @@ def reconcile_open_loops(
                 c_norm = normalize_indic_for_matching(c_raw) if not c_raw.isascii() else c_raw
                 # Hard post-LLM safety guards: never let a small LLM hallucinate `done` on bare acks, deferrals, or partial progress!
                 if llm_status == "done":
+                    if BARE_ACK_RE.match(c_raw) or BARE_ACK_RE.match(c_norm) or is_pure_indic_bare_ack(c_raw):
+                        quoted = index.messages_by_id.get(c_msg.quoted_id)
+                        if not quoted or not COMPLETION_CHECK_QUESTION_RE.search(quoted.body) or c_msg.sender_id != pred.owner:
+                            continue
                     if (
                         c_msg.quoted_id == cand.origin_msg.id
                         and (BARE_ACK_RE.match(c_raw) or BARE_ACK_RE.match(c_norm) or is_pure_indic_bare_ack(c_raw))
@@ -546,7 +550,7 @@ def _evaluate_trail_deterministic(
         # 6. GUARD 1: Bare "Ok" / "Sure" / "Haan" / "👍" (including native Devanagari/Bengali "हाँ", "ठीक है", "হ্যাঁ")
         if BARE_ACK_RE.match(raw_body) or BARE_ACK_RE.match(body) or is_pure_indic_bare_ack(raw_body):
             # ONLY counts as `done` if replying to a completion-check question!
-            if m.quoted_id in pending_completion_check_ids and AFFIRMATIVE_CONFIRM_RE.search(body):
+            if m.sender_id == eff_owner and m.quoted_id in pending_completion_check_ids and AFFIRMATIVE_CONFIRM_RE.search(body):
                 status = "done"
                 closure_id = m.id
                 confidence = 0.88
@@ -565,12 +569,21 @@ def _evaluate_trail_deterministic(
                 eff_due = inh_due
 
         # 7. Substantive answer to an open `question` loop
+        origin_turn = index.enriched_by_id.get(cand.origin_msg.id)
+        response_turn = index.enriched_by_id.get(m.id)
+        adjacent_answer = (
+            m.chat_id == cand.origin_msg.chat_id
+            and origin_turn is not None and response_turn is not None
+            and response_turn.chat_index == origin_turn.chat_index + 1
+            and (m.ts - cand.origin_msg.ts) <= timedelta(minutes=10)
+        )
         if (
             cand.loop_type == "question"
             and status == "open"
             and m.sender_id == eff_owner
             and (m_is_dm or is_direct_reply or token_overlap >= 1)
             and (m.quoted_id == cand.origin_msg.id or same_chat_close)
+            and (is_direct_reply or token_overlap >= 1 or adjacent_answer)
             and not DEFER_ANSWER_RE.search(body)
             and "?" not in body
             and len(m_toks) >= 2

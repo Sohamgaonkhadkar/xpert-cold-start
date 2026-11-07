@@ -27,6 +27,7 @@ from .models import (
     GoalPrediction,
     InterventionPrediction,
     OpenLoopPrediction,
+    OrganisationPrediction,
     PersonPrediction,
 )
 
@@ -54,7 +55,7 @@ def validate_and_repair(
             not p.id
             or p.id == USER_ID
             or p.id in seen_pids
-            or (chat_participant_pids and p.id not in chat_participant_pids)
+            or p.id not in chat_participant_pids
         ):
             repairs.append(f"Dropped duplicate/non-participant person record '{p.id}'")
             continue
@@ -248,7 +249,7 @@ def validate_and_repair(
             repairs.append(f"Dropped loop '{lp.id}' with non-existent origin message '{lp.message_id}'")
             continue
         origin_msg = index.messages_by_id[lp.message_id]
-        if lp.chat_id not in valid_chat_ids:
+        if lp.chat_id != origin_msg.chat_id:
             lp.chat_id = origin_msg.chat_id
             repairs.append(f"Aligned loop '{lp.id}' chat_id to origin message chat '{lp.chat_id}'")
 

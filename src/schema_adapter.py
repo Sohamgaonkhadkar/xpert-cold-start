@@ -23,10 +23,11 @@ def load_schema(schema_path: Optional[str | Path] = None) -> Dict[str, Any]:
         candidate = Path(__file__).resolve().parent.parent / "schema.json"
     else:
         candidate = Path(schema_path)
-    if candidate.exists():
-        with candidate.open("r", encoding="utf-8") as fh:
-            return json.load(fh)
-    return {}
+    with candidate.open("r", encoding="utf-8") as fh:
+        schema = json.load(fh)
+    if not isinstance(schema, dict) or not schema:
+        raise ValueError(f"Schema must be a nonempty JSON object: {candidate}")
+    return schema
 
 
 def _pick_alias(props: Set[str], candidates: Iterable[str], default: str) -> str:
@@ -276,16 +277,42 @@ def validate_json_against_schema(
             for err in errors
         ]
 
-    # Pure-Python structural validator when `jsonschema` package is absent
-    errs: List[str] = []
-    if not isinstance(payload, dict):
-        return ["<root>: output must be a JSON object"]
-    for req in schema.get("required", []):
-        if req not in payload:
-            errs.append(f"<root>: '{req}' is a required property")
-    if schema.get("additionalProperties") is False:
-        allowed_top = set((schema.get("properties") or {}).keys())
-        extra = set(payload.keys()) - allowed_top
-        if extra:
-            errs.append(f"<root>: unknown top-level keys {sorted(extra)}")
-    return errs
+    # The official schema uses only these keywords. Fail closed for other custom
+    # schemas rather than pretending this is a complete JSON Schema engine.
+    return _validate_stdlib(payload, schema)
+
+
+def _validate_stdlib(value: Any, schema: Dict[str, Any], path: str = "<root>") -> List[str]:
+    supported = {"$schema", "title", "description", "type", "required", "properties",
+                 "additionalProperties", "items", "enum", "oneOf", "minItems", "maxItems"}
+    unsupported = set(schema) - supported
+    if unsupported:
+        return [f"{path}: install jsonschema to validate keywords {sorted(unsupported)}"]
+    types = {"object": dict, "array": list, "string": str, "null": type(None),
+             "boolean": bool, "integer": int, "number": (int, float)}
+    declared = schema.get("type")
+    allowed = declared if isinstance(declared, list) else [declared] if declared else []
+    if allowed and not any(isinstance(value, types[t]) and not (isinstance(value, bool) and t in ("integer", "number")) for t in allowed if t in types):
+        return [f"{path}: expected type {declared}"]
+    errors = []
+    if "enum" in schema and value not in schema["enum"]:
+        errors.append(f"{path}: value is not in enum")
+    if "oneOf" in schema and sum(not _validate_stdlib(value, sub, path) for sub in schema["oneOf"]) != 1:
+        errors.append(f"{path}: must match exactly one oneOf branch")
+    if isinstance(value, dict):
+        for key in schema.get("required", []):
+            if key not in value:
+                errors.append(f"{path}: missing required field {key}")
+        props = schema.get("properties", {})
+        for key, item in value.items():
+            if key in props:
+                errors.extend(_validate_stdlib(item, props[key], f"{path}.{key}"))
+            elif schema.get("additionalProperties") is False:
+                errors.append(f"{path}: unexpected field {key}")
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0) or len(value) > schema.get("maxItems", float("inf")):
+            errors.append(f"{path}: invalid item count")
+        for i, item in enumerate(value):
+            if "items" in schema:
+                errors.extend(_validate_stdlib(item, schema["items"], f"{path}[{i}]"))
+    return errors
