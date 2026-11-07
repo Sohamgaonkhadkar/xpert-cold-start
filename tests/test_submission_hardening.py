@@ -241,6 +241,12 @@ def test_saved_name_alias_preserves_kinship_and_trading_role(tmp_path):
     dossier = build_contact_dossiers(index)["p"]
     scores, _ = _score_dossier_tier0(dossier, index, set())
     assert max(scores, key=scores.get) == "vendor"
+    siblings = fixture(tmp_path / "siblings", [("p", "Hello")], group=True)
+    chat = json.loads((siblings / "chats.jsonl").read_text())
+    chat["name"] = "Siblings Circle"
+    (siblings / "chats.jsonl").write_text(json.dumps(chat), encoding="utf-8")
+    _, payload = run_pipeline(siblings)
+    assert payload["people"][0]["circle"] == "sibling"
 
 
 def test_cli_invalid_schema_nonzero(tmp_path):

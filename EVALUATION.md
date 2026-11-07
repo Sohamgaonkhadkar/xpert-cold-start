@@ -140,6 +140,56 @@ endpoint comparison, goal/intervention calibration lacks labels, and dense hidde
 network runtime remains unverified. Packaging and offline execution are validated.
 The final improvement branch has not been merged and the challenge has not been submitted.
 
+## Repository review state
+
+Improvements are pushed on `codex/final-evaluation-hardening`; the main branch remains
+at the authorized Arena merge. The working tree is verified clean at delivery.
+The GitHub connector returned 403 when asked to create a draft PR, so no improvement
+PR was created. The pushed branch is directly reviewable; it has not been merged.
+
+Changed files relative to the integrated main branch:
+
+```text
+.gitattributes
+.github/workflows/ci.yml
+.gitignore
+ARCHITECTURE.md
+AUDIT.md
+EVALUATION.md
+INTERVIEW.md
+README.md
+WRITEUP.md
+ai-logs/README.md
+ai-logs/codex-visible-transcript.md
+ai-logs/mission-prompt.md
+ai-logs/session-summary.md
+metrics/experiment_results.json
+metrics/official_evaluations.json
+metrics/writeup.pdf
+run.sh
+scripts/correction_demo.py
+scripts/evaluate_official.py
+scripts/live_evaluation.py
+scripts/render_writeup.py
+scripts/run_experiments.py
+scripts/scale_fixture.py
+src/cli.py
+src/corrections.py
+src/data_loader.py
+src/evidence_validator.py
+src/intervention_policy.py
+src/llm_client.py
+src/loop_extraction.py
+src/output_builder.py
+src/relationship_inference.py
+src/schema_adapter.py
+src/submission_validator.py
+src/temporal_resolver.py
+tests/conftest.py
+tests/test_bottlenecks_and_multilingual.py
+tests/test_submission_hardening.py
+```
+
 ## Sources
 - Official challenge and FAQ: https://goals.xpert.chat/w/intern
 - Official downloads: https://goals.xpert.chat/w/intern/starter and https://goals.xpert.chat/w/intern/data
