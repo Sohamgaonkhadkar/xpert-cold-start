@@ -76,9 +76,11 @@ def test_serialized_references_catch_cross_chat_and_missing_people():
     assert validate_references(payload, index) == []
     payload["people"].pop()
     payload["open_loops"][0]["source_msg"] = "absent"
+    payload["organisations"][0]["name"] = ""
     errors = validate_references(payload, index)
     assert any("each non-ME" in e for e in errors)
     assert any("originating chat" in e for e in errors)
+    assert any("nonempty ID and name" in e for e in errors)
 
 
 def test_all_history_loops_remain_available(tmp_path):

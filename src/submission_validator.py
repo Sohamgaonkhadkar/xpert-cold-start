@@ -20,6 +20,8 @@ def validate_references(payload, index):
         errors.append("people: must list each non-ME input participant exactly once")
     if {c["chat_id"] for c in payload["chats"]} != set(index.chats):
         errors.append("chats: must tie every input chat exactly once")
+    if any(not org["id"].strip() or not org["name"].strip() for org in payload["organisations"]):
+        errors.append("organisations: nonempty ID and name required")
     for person in payload["people"]:
         if any(lk["organisation"] not in organisations for lk in person.get("links", [])):
             errors.append("people: unknown organisation link")
