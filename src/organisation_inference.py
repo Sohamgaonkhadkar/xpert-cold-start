@@ -21,7 +21,11 @@ from .models import (
     OrganisationPrediction,
     PersonPrediction,
 )
-from .relationship_inference import BRIDGE_GROUP_RE, extract_contact_tag
+from .relationship_inference import (
+    BRIDGE_GROUP_RE,
+    extract_contact_tag,
+    extract_org_name_tokens,
+)
 
 SOCIETY_KEYWORDS: Set[str] = {
     "society", "residents", "rwa", "apartment", "apartments", "tower", "towers",
@@ -39,7 +43,8 @@ WORKSPACE_KEYWORDS: Set[str] = {
 }
 
 HOME_GROUP_KEYWORDS: Set[str] = {
-    "home", "ghar", "house", "household", "kitchen", "groceries", "bari",
+    "home", "ghar", "house", "household", "kitchen", "groceries", "grocery",
+    "ration", "carpool", "househelp", "maids", "drivers", "bari",
 }
 
 SCHOOL_KEYWORDS: Set[str] = {
@@ -121,9 +126,7 @@ def infer_organisations_and_chats(
             role=orole,
             source="seed",
         )
-        kws = {
-            t for t in tokenize(s_org.name, drop_stopwords=True) if len(t) >= 3
-        }
+        kws = extract_org_name_tokens(s_org.name)
         org_keywords[oid] = kws
         ledger.record(
             subject_type="organisation",
@@ -174,7 +177,7 @@ def infer_organisations_and_chats(
                     role="partner" if has_partner else "owner",
                     source="inferred",
                 )
-                org_keywords[oid] = {
+                org_keywords[oid] = extract_org_name_tokens(tag_name) | {
                     t for t in tokenize(tag_name, drop_stopwords=True) if len(t) >= 2
                 }
                 work_orgs.append(oid)
@@ -195,12 +198,18 @@ def infer_organisations_and_chats(
         part_circles = Counter(
             people[p].circle for p in gc.participant_ids if p in people
         )
+        # WhatsApp household groups often use flat IDs ("7A"), but never treat a school "Class 4B" as home.
+        flat_unit = bool(re.search(r"\b\d+\s?[a-d]\b", low_name)) and not bool(
+            gtoks & (CLASS_GROUP_KEYWORDS | SCHOOL_KEYWORDS | {"class", "grade", "section"})
+        ) and not bool(gtoks & {"residents", "society", "rwa", "maintenance", "tower"})
         # Skip if already matching a seeded/tag-discovered org name
         if any(gtoks & kws for kws in org_keywords.values() if kws):
             continue
 
         if any(k in low_name for k in HOLIDAY_HOME_KEYWORDS):
             holiday_group_candidates.append(gc.chat_id)
+        elif flat_unit:
+            home_group_candidates.append(gc.chat_id)
         elif gtoks & SOCIETY_KEYWORDS:
             society_group_candidates.append(gc.chat_id)
         elif gtoks & WORKSPACE_KEYWORDS:
@@ -220,18 +229,39 @@ def infer_organisations_and_chats(
         ):
             unseeded_work_group_candidates.append(gc)
 
-    # Identify household staff vs office staff
+    # Identify household, office, and vacation-home staff (including place suffixes in phonebook names).
     household_staff: List[str] = []
     office_staff: List[str] = []
+    holiday_staff: List[str] = []
     for spid in by_circle.get("staff", []):
         s_msgs = " ".join(m.body.lower() for m in index.person_messages.get(spid, [])[:20])
         if dm_cid := index.dm_chat_by_person.get(spid):
             s_msgs += " " + " ".join(m.body.lower() for m in index.by_chat.get(dm_cid, [])[:20])
         s_name = people[spid].name.lower()
-        if any(w in s_name or w in s_msgs for w in ("office", "pantry", "reception", "desk", "cabin")) and not people[spid].supports_people:
+        s_name_toks = set(tokenize(s_name, drop_stopwords=False))
+        if s_name_toks & {"farm", "farmhouse"}:
+            holiday_staff.append(spid)
+        elif s_name_toks & {"home", "ghar"}:
+            household_staff.append(spid)
+        elif any(w in s_name or w in s_msgs for w in ("office", "pantry", "reception", "desk", "cabin")) and not people[spid].supports_people:
             office_staff.append(spid)
         else:
             household_staff.append(spid)
+
+    # An explicit "<Name> Office"/office-staff cue can anchor a workspace even when no company is seeded.
+    if not work_orgs and not has_workspace_org and office_staff:
+        office_oid = "org_office"
+        orgs[office_oid] = OrganisationPrediction(
+            id=office_oid,
+            name="Office",
+            type="workspace",
+            side="work",
+            role="member",
+            source="inferred",
+        )
+        org_keywords[office_oid] = {"office", "workspace"}
+        work_orgs.append(office_oid)
+        has_workspace_org = True
 
     if not has_home_org and (home_group_candidates or household_staff):
         oid = "org_home"
@@ -256,12 +286,16 @@ def infer_organisations_and_chats(
             role="resident",
             source="inferred",
         )
-        org_keywords[oid] = {
-            t for t in tokenize(first_soc_name, drop_stopwords=True) if len(t) >= 3
-        } | {"society", "rwa", "maintenance", "tower"}
+        org_keywords[oid] = extract_org_name_tokens(first_soc_name) | {
+            "society", "rwa", "maintenance", "tower"
+        }
 
-    if not has_holiday_org and holiday_group_candidates:
-        first_hol_name = index.chats[holiday_group_candidates[0]].name
+    if not has_holiday_org and (holiday_group_candidates or holiday_staff):
+        if holiday_group_candidates:
+            first_hol_name = index.chats[holiday_group_candidates[0]].name
+        else:
+            first_staff_name = " ".join(tokenize(people[holiday_staff[0]].name, drop_stopwords=False))
+            first_hol_name = "Farmhouse" if "farmhouse" in first_staff_name else "Farm"
         oid = _slugify(first_hol_name, prefix="org_hol")
         orgs[oid] = OrganisationPrediction(
             id=oid,
@@ -271,9 +305,7 @@ def infer_organisations_and_chats(
             role="owner",
             source="inferred",
         )
-        org_keywords[oid] = {
-            t for t in tokenize(first_hol_name, drop_stopwords=True) if len(t) >= 3
-        }
+        org_keywords[oid] = extract_org_name_tokens(first_hol_name) | {"farm", "farmhouse"}
 
     if not has_workspace_org and workspace_group_candidates:
         first_ws_name = index.chats[workspace_group_candidates[0]].name
@@ -286,9 +318,7 @@ def infer_organisations_and_chats(
             role="member",
             source="inferred",
         )
-        org_keywords[oid] = {
-            t for t in tokenize(first_ws_name, drop_stopwords=True) if len(t) >= 3
-        }
+        org_keywords[oid] = extract_org_name_tokens(first_ws_name)
 
     # Spawn distinct unseeded work companies from internal team/ops groups ("Zephyr Core Team", "Kite Advisory Ops")
     for wgc in unseeded_work_group_candidates:
@@ -316,7 +346,7 @@ def infer_organisations_and_chats(
                 role="partner" if has_partner_in_grp else "owner",
                 source="inferred",
             )
-            org_keywords[oid] = set(gtoks_clean)
+            org_keywords[oid] = extract_org_name_tokens(brand_name) | set(gtoks_clean)
             work_orgs.append(oid)
 
     # Ensure at least one work company exists if ME has colleagues or partners
@@ -340,9 +370,7 @@ def infer_organisations_and_chats(
             role="partner" if has_partner else "owner",
             source="inferred",
         )
-        org_keywords[oid] = {
-            t for t in tokenize(inferred_co_name, drop_stopwords=True) if len(t) >= 3
-        }
+        org_keywords[oid] = extract_org_name_tokens(inferred_co_name)
         work_orgs.append(oid)
 
     # Update company role to `partner` if ME has `partner` circle co-founders in that org
@@ -356,12 +384,60 @@ def infer_organisations_and_chats(
                 ):
                     orgs[oid].role = "partner"
 
+    # Build active core-member sets from groups with explicit organisation-name evidence; the overlap
+    # can then carry the organisation identity into differently named internal groups.
+    org_core_members_by_org: Dict[str, Set[str]] = defaultdict(set)
+    for gc in group_chats:
+        gc_toks = set(tokenize(gc.name, drop_stopwords=False))
+        gc_msg_counts = Counter(m.sender_id for m in index.by_chat.get(gc.chat_id, []))
+        for oid, org in orgs.items():
+            if org.side != "work":
+                continue
+            kws = org_keywords.get(oid, set())
+            if not kws or not (gc_toks & kws):
+                continue
+            for pid in gc.participant_ids:
+                if pid not in people or people[pid].circle not in ("colleague", "partner"):
+                    continue
+                if (
+                    people[pid].source == "seed"
+                    or pid in index.dm_chat_by_person
+                    or gc_msg_counts[pid] >= 3
+                    or bool(set(tokenize(people[pid].name, drop_stopwords=True)) & kws)
+                ):
+                    org_core_members_by_org[oid].add(pid)
+
     # 3. Resolve Chat Ownership (`person` vs `organisation`) for EVERY chat
     chat_predictions: Dict[str, ChatPrediction] = {}
     ambiguous_group_chats: List[ChatRecord] = []
 
     for cid, chat in sorted(index.chats.items()):
         non_me = [p for p in chat.participant_ids if p != USER_ID]
+
+        # Rule 0: Notes-to-self / zero-counterparty chat (`participants == ["ME"]`) — must always tie to an org!
+        if not non_me:
+            fallback_oid = next((oid for oid, o in orgs.items() if o.type == "residence"), None)
+            if fallback_oid is None:
+                fallback_oid = "personal"
+                if fallback_oid not in orgs:
+                    orgs[fallback_oid] = OrganisationPrediction(
+                        id=fallback_oid,
+                        name="Personal",
+                        type="other",
+                        side="home",
+                        role="owner",
+                        source="inferred",
+                    )
+                    org_keywords[fallback_oid] = set()
+            chat_predictions[cid] = ChatPrediction(
+                chat_id=cid,
+                owner_type="organisation",
+                owner_id=fallback_oid,
+                confidence=0.90,
+                evidence=[m.id for m in index.by_chat.get(cid, [])[:1]],
+                source="inferred",
+            )
+            continue
 
         # Rule A: 1-to-1 chats tie to that person, UNLESS the chat is an explicit institutional desk/office of one of ME's organisations
         if not chat.is_group and len(non_me) == 1:
@@ -383,9 +459,9 @@ def infer_organisations_and_chats(
                     ).strip(" -–:")
                     if inst_name:
                         if dm_toks & SCHOOL_KEYWORDS:
-                            itype, irole, iside = "school", "parent", "life"
+                            itype, irole, iside = "school", "parent", "home"
                         elif dm_toks & SOCIETY_KEYWORDS:
-                            itype, irole, iside = "society", "resident", "life"
+                            itype, irole, iside = "society", "resident", "home"
                         else:
                             itype, irole, iside = "workspace", "member", "work"
                         inst_org_id = _slugify(inst_name, prefix=f"org_{itype.split()[0]}")
@@ -398,9 +474,7 @@ def infer_organisations_and_chats(
                                 role=irole,
                                 source="inferred",
                             )
-                            org_keywords[inst_org_id] = {
-                                t for t in tokenize(inst_name, drop_stopwords=True) if len(t) >= 3
-                            }
+                            org_keywords[inst_org_id] = extract_org_name_tokens(inst_name)
             if inst_org_id:
                 chat_predictions[cid] = ChatPrediction(
                     chat_id=cid,
@@ -427,6 +501,19 @@ def infer_organisations_and_chats(
         btoks = set(tokenize(body_preview, drop_stopwords=False))
 
         part_circles = Counter(people[p].circle for p in non_me if p in people)
+        group_msg_counts = Counter(m.sender_id for m in index.by_chat.get(cid, []))
+        active_non_me = [
+            p for p in non_me
+            if p in people and (
+                people[p].source == "seed"
+                or p in index.dm_chat_by_person
+                or group_msg_counts[p] >= 3
+            )
+        ]
+        active_work_members = [
+            p for p in active_non_me
+            if people[p].circle in ("colleague", "partner")
+        ]
 
         # Rule B: Child's class parents' group / child's activity or tutor group -> belongs to the child!
         # Guard: NEVER hijack a household ("Ghar"/"Home") or extended-family group just because the child is a participant!
@@ -517,6 +604,21 @@ def infer_organisations_and_chats(
                     and (set(tokenize(people[p].name, drop_stopwords=True)) & kws)
                 )
                 score += 1.5 + 1.8 * org_member_overlap
+            if org.side == "work" and len(non_me) >= 3 and active_work_members:
+                # Core-member overlap transfers an org label across differently named internal groups:
+                # at least 3 active colleagues/partners and >=50% of active participants must align.
+                known_core = org_core_members_by_org.get(oid, set())
+                org_core_members = [
+                    p for p in active_work_members
+                    if p in known_core
+                    or len(work_orgs) == 1
+                    or bool(set(tokenize(people[p].name, drop_stopwords=True)) & kws)
+                ]
+                if (
+                    len(org_core_members) >= 3
+                    and len(org_core_members) >= 0.5 * max(1, len(active_non_me))
+                ):
+                    score += 5.5 + min(3.0, 0.5 * len(org_core_members))
             if score > best_org_score:
                 best_org_score = score
                 best_org_id = oid
@@ -554,15 +656,35 @@ def infer_organisations_and_chats(
             continue
 
         if work_orgs and (part_circles["colleague"] + part_circles["partner"] >= 2) and part_circles["client"] == 0:
-            chat_predictions[cid] = ChatPrediction(
-                chat_id=cid,
-                owner_type="organisation",
-                owner_id=work_orgs[0],
-                confidence=0.72,
-                evidence=[m.id for m in index.by_chat.get(cid, [])[:2]],
+            # Small internal teams are straightforward; large groups need >=3 core work members
+            # covering at least half of active participants, rather than a few colleagues among lurkers.
+            ranked_work_orgs: List[Tuple[int, str]] = []
+            for woid in work_orgs:
+                wkws = org_keywords.get(woid, set())
+                known_core = org_core_members_by_org.get(woid, set())
+                overlap = sum(
+                    1 for p in active_work_members
+                    if p in known_core
+                    or len(work_orgs) == 1
+                    or bool(set(tokenize(people[p].name, drop_stopwords=True)) & wkws)
+                )
+                ranked_work_orgs.append((overlap, woid))
+            core_overlap, selected_work_org = max(ranked_work_orgs, default=(0, ""))
+            small_internal_group = len(non_me) <= 8 and core_overlap >= 2
+            large_core_group = (
+                core_overlap >= 3
+                and core_overlap >= 0.5 * max(1, len(active_non_me))
             )
-            ambiguous_group_chats.append(chat)
-            continue
+            if selected_work_org and (small_internal_group or large_core_group):
+                chat_predictions[cid] = ChatPrediction(
+                    chat_id=cid,
+                    owner_type="organisation",
+                    owner_id=selected_work_org,
+                    confidence=0.72 if small_internal_group else 0.78,
+                    evidence=[m.id for m in index.by_chat.get(cid, [])[:2]],
+                )
+                ambiguous_group_chats.append(chat)
+                continue
 
         # Fallback to primary participant in the group (named person, family elder in extended-family group, or most active speaker)
         named_person: Optional[str] = None
@@ -580,7 +702,7 @@ def infer_organisations_and_chats(
             )
         if named_person is None and non_me:
             msg_counts = Counter(
-                m.sender_id for m in index.by_chat.get(cid, []) if m.sender_id != USER_ID
+                m.sender_id for m in index.by_chat.get(cid, []) if m.sender_id in non_me
             )
             named_person = (
                 msg_counts.most_common(1)[0][0] if msg_counts else non_me[0]
@@ -674,19 +796,39 @@ def infer_organisations_and_chats(
         links_map: Dict[str, str] = {}
 
         # A. Direct participation in organisation-owned chats
+        ptoks = set(tokenize(person.name, drop_stopwords=True))
         for cid in index.person_chats.get(pid, set()):
             cpred = chat_predictions.get(cid)
             if cpred and cpred.owner_type == "organisation" and cpred.owner_id in orgs:
                 org = orgs[cpred.owner_id]
+                chat_obj = index.chats.get(cid)
+                chat_size = len(chat_obj.participant_ids) if chat_obj else 0
                 if person.circle in ("partner", "colleague") and org.side == "work":
-                    links_map[org.id] = "runs"
+                    # Keep check.py's org_members Jaccard high: a silent, unseeded, single-group lurker
+                    # with <3 messages and no org tag is not evidence of an org relationship.
+                    group_msg_count = sum(
+                        1 for m in index.by_chat.get(cid, []) if m.sender_id == pid
+                    )
+                    group_count = sum(
+                        1 for pcid in index.person_chats.get(pid, set())
+                        if pcid in index.chats and index.chats[pcid].is_group
+                    )
+                    is_silent_lurker = (
+                        chat_size > 8
+                        and group_msg_count < 3
+                        and pid not in index.dm_chat_by_person
+                        and person.source != "seed"
+                        and not (ptoks & org_keywords.get(org.id, set()))
+                        and group_count <= 1
+                    )
+                    if not is_silent_lurker:
+                        links_map[org.id] = "runs"
                 elif person.circle == "staff":
                     links_map[org.id] = "supports"
                 elif person.circle == "vendor" and org.side == "home":
                     links_map[org.id] = "supports"
 
         # B. 1-to-1 contacts linked by role/tag even if not in a group chat
-        ptoks = set(tokenize(person.name, drop_stopwords=True))
         if person.circle in ("colleague", "partner") and not any(
             orgs[oid].side == "work" for oid in links_map
         ):
@@ -695,7 +837,9 @@ def infer_organisations_and_chats(
                 if ptoks & org_keywords.get(woid, set()):
                     matched_wo = woid
                     break
-            if matched_wo is None and len(work_orgs) == 1:
+            if matched_wo is None and len(work_orgs) == 1 and (
+                person.source == "seed" or pid in index.dm_chat_by_person or len(index.person_messages.get(pid, [])) >= 3
+            ):
                 matched_wo = work_orgs[0]
             if matched_wo:
                 links_map[matched_wo] = "runs"

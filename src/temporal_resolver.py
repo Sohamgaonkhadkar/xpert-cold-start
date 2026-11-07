@@ -606,7 +606,17 @@ def _evaluate_trail_deterministic(
             m.kind == "document"
             and m.sender_id == eff_owner
             and not is_future_or_request_caption
-            and (is_direct_reply or (cand.loop_type in ("request", "follow_up") and token_overlap >= 2))
+            and (
+                is_direct_reply
+                or (cand.loop_type in ("commitment", "followup", "deadline") and token_overlap >= 2)
+                or (
+                    m_is_dm
+                    and m.chat_id == cand.origin_msg.chat_id
+                    and cand.loop_type in ("commitment", "followup")
+                    and chat_loop_count == 1
+                    and (m.ts - cand.origin_msg.ts) <= timedelta(hours=48)
+                )
+            )
         ):
             status = "done"
             closure_id = m.id

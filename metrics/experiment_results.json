@@ -3,12 +3,12 @@
   "experiments": [
     {
       "experiment": "exp0_naive_baseline",
-      "runtime_sec": 0.0601,
+      "runtime_sec": 0.0656,
       "total_messages": 1410,
       "tokens_estimated": 50977,
       "dollars_per_1k_messages": 0.0211,
       "score_86": 39.325,
-      "score_93": 46.325,
+      "score_93": 39.325,
       "breakdown": {
         "circles_12": 0.48,
         "organisations_8": 0.0,
@@ -18,7 +18,7 @@
         "open_loops_closed_14": 9.625,
         "intervention_10": 0.0,
         "cost_12": 11.303,
-        "execution_7": 7.0
+        "execution_7": 0.0
       },
       "diagnostics": {
         "circle_accuracy_unseeded": 0.0455,
@@ -258,7 +258,7 @@
     },
     {
       "experiment": "exp1_relationship_and_org_dossiers",
-      "runtime_sec": 0.0887,
+      "runtime_sec": 0.105,
       "total_messages": 1410,
       "llm_calls": 3,
       "stage_tokens": {
@@ -382,7 +382,7 @@
     },
     {
       "experiment": "exp2_multilingual_loop_discovery",
-      "runtime_sec": 0.0767,
+      "runtime_sec": 0.0888,
       "total_messages": 1410,
       "llm_calls": 4,
       "stage_tokens": {
@@ -548,7 +548,7 @@
     },
     {
       "experiment": "exp3_arr_temporal_reconciliation",
-      "runtime_sec": 0.0867,
+      "runtime_sec": 0.107,
       "total_messages": 1410,
       "llm_calls": 12,
       "stage_tokens": {
@@ -683,7 +683,7 @@
     },
     {
       "experiment": "exp4_prism_intervention_policy",
-      "runtime_sec": 0.0853,
+      "runtime_sec": 0.1214,
       "total_messages": 1410,
       "llm_calls": 13,
       "stage_tokens": {
@@ -763,7 +763,7 @@
     },
     {
       "experiment": "exp5_cost_cascaded_optimization",
-      "runtime_sec": 0.0884,
+      "runtime_sec": 0.0974,
       "total_messages": 1410,
       "llm_calls": 13,
       "stage_tokens": {
@@ -915,8 +915,8 @@
     "scale_20k_messages_320_chats": {
       "messages": 20000,
       "chats": 320,
-      "local_wall_sec": 0.91,
-      "headroom_vs_30min_limit_x": 1978.0,
+      "local_wall_sec": 1.035,
+      "headroom_vs_30min_limit_x": 1739.1,
       "llm_calls": 15,
       "prompt_tokens": 14664,
       "completion_tokens": 315,

@@ -60,6 +60,7 @@ SELF_COMMIT_RE = re.compile(
 DIRECTIVE_REQUEST_RE = re.compile(
     r"\b(please\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can you|could you|would you|need you to|"
     r"don't forget to|dont forget to|remember to|make sure to|kindly\s+[a-z]+|"
+    r"let me know|lmk|batao|batana|bata dena|tell me|update me|keep me posted|inform me|"
     r"bhej\s+dena|bhej\s+do|kar\s+dena|kar\s+do|de\s+dena|le\s+aana|chod\s+dena|chhor\s+dena|"
     r"pay\s+kar\s+dena|khoj\s+ke\s+batao|pata\s+karke\s+batao|"
     r"check\s+karo|check\s+kar\s+lena|yaad\s+se|pathiye\s+dio|kore\s+dio|ene\s+dio|niye\s+esho|dekhe\s+nio|khoj\s+niye)\b",
@@ -118,6 +119,20 @@ SOCIAL_NOISE_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Ignore pure WhatsApp export placeholders as loop openers; documents remain available as closure evidence.
+MEDIA_ONLY_RE = re.compile(
+    r"^\[(?:photo|video|audio|sticker|gif|image|voice)(?:[^\]]*)\]$",
+    re.IGNORECASE,
+)
+BIRTHDAY_WISH_RE = re.compile(
+    r"^(?:happy\s+birthday|hbd\b|janmadin\s+mubarak|janamdin\s+mubarak|shubho\s+jonmodin)\b",
+    re.IGNORECASE,
+)
+BIRTHDAY_ACTION_RE = re.compile(
+    r"\b(book|order|buy|send|share|arrange|plan|organize|organise|pay|bring|pick|deliver|call|please|need|can you|could you|lmk|batao)\b",
+    re.IGNORECASE,
+)
+
 ACCEPTANCE_REPLY_RE = re.compile(
     r"^(?:ok|okay|sure|yes|yep|haan|han|ji|ji\s+sahab|ji\s+bhaiya|theek\s+hai|thik\s+hai|"
     r"acha|accha|will\s+do|on\s+it|kar\s+dunga|kar\s+deti\s+hoon|main\s+kar\s+lunga|noted|👍|🙏)\b",
@@ -148,6 +163,9 @@ _DUE_FAST_GATE_RE = re.compile(
 )
 _ISO_DATE_RE = re.compile(r"\b(202[4-9])-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b")
 _DMY_DATE_RE = re.compile(r"\b(0?[1-9]|[12]\d|3[01])[/-](0?[1-9]|1[0-2])[/-](202[4-9])\b")
+_DMY_SHORT_DATE_RE = re.compile(
+    r"\b(0?[1-9]|[12]\d|3[01])/(0?[1-9]|1[0-2])\b(?![/-]\d)"
+)
 _MD1_DATE_RE = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({_MONTH_PAT})\b(?:\s+(202[4-9]))?")
 _MD2_DATE_RE = re.compile(rf"\b({_MONTH_PAT})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b(?:,?\s*(202[4-9]))?")
 _DAY_AFTER_RE = re.compile(r"\b(day after tomorrow|parso|parson|porshu)\b")
@@ -189,7 +207,19 @@ def resolve_due_date(text: str, msg_ts: datetime) -> Optional[str]:
         except ValueError:
             pass
 
-    # 3. "15th Nov" / "Nov 15"
+    # 3. Indian short date DD/MM (no year): anchor to message year, rolling old dates forward only if clearly stale.
+    m_dmy_short = _DMY_SHORT_DATE_RE.search(low)
+    if m_dmy_short:
+        d, mo = int(m_dmy_short.group(1)), int(m_dmy_short.group(2))
+        try:
+            cand = date(base_date.year, mo, d)
+            if (base_date - cand).days > 60:
+                cand = date(base_date.year + 1, mo, d)
+            return cand.isoformat()
+        except ValueError:
+            pass
+
+    # 4. "15th Nov" / "Nov 15"
     m_md1 = _MD1_DATE_RE.search(low)
     m_md2 = None if m_md1 else _MD2_DATE_RE.search(low)
     if m_md1 or m_md2:
@@ -252,10 +282,16 @@ def _find_mentioned_person(
     chat_participants: Tuple[str, ...],
     people: Dict[str, PersonPrediction],
     sender_id: str,
+    index: Optional[ConversationIndex] = None,
 ) -> Optional[str]:
     low = text.lower()
     toks = set(tokenize(low, drop_stopwords=False))
     candidates = [p for p in chat_participants if p != USER_ID and p != sender_id]
+    if index is not None:
+        for handle in re.findall(r"@(\d{5,})", text):
+            owner = index.mention_handle_owner.get(handle)
+            if owner in candidates:
+                return owner
     for pid in candidates:
         p = people.get(pid)
         if not p:
@@ -342,10 +378,12 @@ def extract_open_loop_candidates(
         if msg.id in consumed_msg_ids:
             continue
         body = (msg.body or "").strip()
-        if not body or SOCIAL_NOISE_RE.match(body):
+        if not body or SOCIAL_NOISE_RE.match(body) or MEDIA_ONLY_RE.fullmatch(body):
             continue
 
         match_body = normalize_indic_for_matching(body) if not body.isascii() else body
+        if BIRTHDAY_WISH_RE.match(match_body) and not BIRTHDAY_ACTION_RE.search(match_body):
+            continue
 
         # Fast pre-cutoff filter: messages >8 days before scoring_cutoff can ONLY carry over via an explicit numeric date!
         if msg.ts < scoring_cutoff:
@@ -453,7 +491,7 @@ def extract_open_loop_candidates(
         owner: Optional[str] = None
         conf = 0.68
 
-        mentioned_other = _find_mentioned_person(body, participants, people, msg.sender_id)
+        mentioned_other = _find_mentioned_person(body, participants, people, msg.sender_id, index)
 
         if msg.sender_id == USER_ID:
             if has_self_commit and not has_directive:
@@ -507,9 +545,12 @@ def extract_open_loop_candidates(
             # Check if P is addressing ANOTHER non-ME person in a group chat! (Adversarial #4 & #19)
             addressed_third_party = mentioned_other  # != USER_ID and != sender_pid
             body_toks_low = set(tokenize(body.lower(), drop_stopwords=False))
+            numeric_handles = set(re.findall(r"@(\d{5,})", body))
             me_explicitly_named = bool(
                 index.me_aliases and (body_toks_low & index.me_aliases)
-            ) or (q_msg is not None and q_msg.sender_id == USER_ID)
+            ) or bool(numeric_handles & index.me_mention_handles) or (
+                q_msg is not None and q_msg.sender_id == USER_ID
+            )
 
             if addressed_third_party and not me_explicitly_named:
                 # E.g., Spouse tells Staff "Ramesh, clean the balcony" or Colleague A asks Colleague B
@@ -589,6 +630,10 @@ def extract_open_loop_candidates(
                     conf = 0.72
 
         if not loop_type or not owner:
+            continue
+        # Official check.py owners must be in chats.jsonl participants; historical/departed senders
+        # can remain as message evidence, but cannot become output people or loop owners.
+        if owner != USER_ID and owner not in people:
             continue
 
         # Also check immediate child reply for due_date refinement (e.g. "Can you send deck?" -> "Will send tomorrow")

@@ -51,7 +51,15 @@ bash run.sh <input_folder> <output_path> --corrections corrections.json
   ```bash
   bash run.sh example /tmp/ex_out.json && python3 check.py example /tmp/ex_out.json
   ```
-* `src/llm_client.py` automatically appends `{model, prompt_tokens, completion_tokens, seconds}` to `$LLM_USAGE_LOG` (`usage.jsonl`) on every LLM call for official cost grading.
+* `src/llm_client.py` appends `{model, prompt_tokens, completion_tokens, seconds}` to `$LLM_USAGE_LOG` on live calls and defaults to `usage.jsonl` when the variable is unset.
+
+## Competitor Checkpoint & Pass-6 Hardening (2026-11-07)
+A fresh GitHub API check found no newer public Xpert Cold Start solution:
+* [`CodeInfinity1/cold-start`](https://github.com/CodeInfinity1/cold-start) was last pushed **Nov 3**; its latest code was previously measured at **50.6/74** on the official example and **27.6/56** on public `data/dev`.
+* [`Remycooks/Xpert_Challenge`](https://github.com/Remycooks/Xpert_Challenge) was last pushed **Nov 4**; its v1.1 rules solution leaves goals and open loops empty.
+* [`dipgarg0011/Xpert-Cold-Start`](https://github.com/dipgarg0011/Xpert-Cold-Start) remains an empty repository. No additional matching submission surfaced in the repository search.
+
+Competitor-informed additions now cover WhatsApp numeric `@` JID/LID resolution, place-named staff, CamelCase org acronyms and active core-member overlap, self-only Notes-to-Self chats, departed-sender/loop-owner guards, media and birthday-noise suppression, document closure evidence, slash dates, and Hinglish `tmrw`/`batao`/`lmk`. The updated 20k-message/320-chat audit completes in **1.04s** with **14,664 prompt tokens**; all **51 tests pass**, and the official example remains **74.0/74**.
 
 ---
 
@@ -94,7 +102,8 @@ bash run.sh <input_folder> <output_path> --corrections corrections.json
     ├── test_official_starter_and_competitor_traps.py # Official check.py 74/74 (seeded & 0%-seed), $LLM_USAGE_LOG, Marathi/Tamil & competitor traps
     ├── test_redteam_audit_fixes.py       # Hidden-persona rename, IST midnight TZ, bystander guards, reasoning-model & scale tests
     ├── test_robustness_and_validators.py # Order shuffle, temporal truncation, empty seed, validator & schema alias tests
-    └── test_corrections_and_cli.py       # All 5 live-interview correction types, cascade isolation, and run.sh CLI tests
+    ├── test_corrections_and_cli.py       # All 5 live-interview correction types, cascade isolation, and run.sh CLI tests
+    └── test_pass6_whatsapp_edges.py     # Departed senders, self-chats, numeric mentions, media, dates, org overlap, and place-named staff
 ```
 
 ---
@@ -107,7 +116,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # 2. Validate & score against the official starter.zip check.py (74.0 / 74)
 bash run.sh example /tmp/ex_out.json && python3 check.py example /tmp/ex_out.json
 
-# 3. Run all 45 automated official-starter, adversarial, multilingual Unicode, ASR, red-team, 20k-scale, and CLI tests
+# 3. Run all 51 automated official-starter, adversarial, multilingual Unicode, ASR, red-team, 20k-scale, and CLI tests
 .venv/bin/pytest -v
 
 # 4. Reproduce Controlled Experiments 0..5 + Robustness & 20k-Scale Audits -> metrics/experiment_results.json

@@ -153,6 +153,29 @@ class ContactDossier:
     heuristic_scores: Dict[str, float] = field(default_factory=dict)
 
 
+def extract_org_name_tokens(name: str) -> Set[str]:
+    """Extract canonical name words, squashed compound, and >=3-letter CamelCase/multi-word acronyms
+    (e.g. 'PostMyAd' -> {'postmyad', 'pma'}, 'BlueMoonAds' -> {'bluemoonads', 'bma'})."""
+    toks: Set[str] = {
+        t.lower() for t in tokenize(name, drop_stopwords=True) if len(t) >= 3
+    }
+    squashed = re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    if len(squashed) >= 3:
+        toks.add(squashed)
+    parts = re.findall(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|\d+", name or "")
+    if len(parts) >= 2:
+        acronym = "".join(p[0] for p in parts).lower()
+        if 3 <= len(acronym) <= 5:
+            toks.add(acronym)
+    else:
+        words = re.findall(r"[A-Za-z]+", name or "")
+        if len(words) >= 3:
+            acronym = "".join(w[0] for w in words).lower()
+            if 3 <= len(acronym) <= 5:
+                toks.add(acronym)
+    return toks
+
+
 def extract_contact_tag(display_name: str) -> Optional[str]:
     if not display_name:
         return None
@@ -283,6 +306,21 @@ def _score_dossier_tier0(
     if name_tokens & VENDOR_ROLE_WORDS or re.search(r"\bca\b|\badv\.?\b|\bdr\.?\b", name_low):
         scores["vendor"] += 5.5
         _collect_ev(VENDOR_CONTEXT_WORDS | VENDOR_ROLE_WORDS)
+    # Place-word in a personal contact name ("Ramesh Home", "Sunil Office", "Kishan Farmhouse") -> staff at that place
+    if (
+        len(name_tokens) >= 2
+        and (name_tokens & {"home", "ghar", "office", "farm", "farmhouse"})
+        and scores["vendor"] < 3.0
+        and not (name_tokens & {
+            "decor", "decoration", "centre", "center", "store", "stores", "mart",
+            "interiors", "furnishings", "appliances", "hardware", "supplies", "supplier",
+            "contractor", "contractors", "builders", "design", "designer", "studio",
+            "services", "solutions", "systems", "traders", "trading", "enterprises",
+            "agency", "industries", "electronics", "lighting", "admin", "desk",
+            "reception", "box",
+        })
+    ):
+        scores["staff"] += 5.4
     if name_tokens & PARENT_CONTACT_WORDS and not (name_tokens & INLAW_WORDS):
         scores["parent"] += 6.5
     if name_tokens & INLAW_WORDS or any(w in name_low for w in ("in-law", "mummyji", "papaji", "jiju", "bhabhi", "boudi")):
@@ -478,6 +516,20 @@ def _score_dossier_tier0(
             for t in me_dm_texts
         ):
             scores["parent"] += 4.5
+        # Elder calling ME "beta / betu / bachha" in 1:1 DM ("ok beta", "god bless beta", "beta, call me")
+        p_dm_texts = [
+            (normalize_indic_for_matching(m.body) if not m.body.isascii() else m.body).lower().strip()
+            for m in index.by_chat.get(dossier.dm_chat_id, [])
+            if m.sender_id == dossier.person_id and m.body
+        ]
+        if any(
+            re.search(
+                r"^(?:beta|betu|bachha)\s*[,!]|(?:ok|okay|haan|ha|hi|hello|thanks|thank you|love you|god bless|ashirwad|aashirwad)\s+[,!]*(?:beta|betu|bachha)\b|\b(?:beta|betu)[!.,\s🙏❤️]*$",
+                t,
+            )
+            for t in p_dm_texts
+        ):
+            scores["parent"] += 4.2
         if any(re.search(r"\b(maa ko|papa ko|mummy ne|baba bol rahe|mom said|dad said|rakhi)\b", t) for t in me_dm_texts):
             scores["sibling"] += 3.6
             _collect_ev(SIBLING_WORDS | PARENT_CONTACT_WORDS)
@@ -745,9 +797,7 @@ def infer_people_circles(
 
     seed_org_tokens: Set[str] = _discover_unseeded_work_tokens(index, dossiers)
     for org in index.bundle.seed.organisations:
-        for tok in tokenize(org.name, drop_stopwords=True):
-            if len(tok) >= 3:
-                seed_org_tokens.add(tok)
+        seed_org_tokens.update(extract_org_name_tokens(org.name))
 
     predictions: Dict[str, PersonPrediction] = {}
     uncertain_dossiers: List[ContactDossier] = []
@@ -930,6 +980,31 @@ def infer_people_circles(
         )
         for p in inferred_spouses[1:]:
             p.circle = "friend"
+    elif not seeded_spouses and not inferred_spouses:
+        # Busiest 1:1 DM spouse fallback on multi-week exports (>=80 DM msgs & >=2.5x runner-up & family/home link)
+        dm_ranked = sorted(
+            ((dos.dm_msg_count, pid) for pid, dos in dossiers.items() if dos.dm_chat_id),
+            reverse=True,
+        )
+        if dm_ranked:
+            top_cnt, top_pid = dm_ranked[0]
+            second_cnt = dm_ranked[1][0] if len(dm_ranked) > 1 else 0
+            top_pred = predictions.get(top_pid)
+            if (
+                top_pred
+                and top_pred.source != "seed"
+                and top_pred.circle in ("friend", "relative", "sibling")
+                and top_cnt >= 80
+                and top_cnt >= 2.5 * max(1, second_cnt)
+            ):
+                top_name_toks = {t.lower() for t in tokenize(top_pred.name, drop_stopwords=False)}
+                in_home_grp = any(
+                    set(tokenize(gn.lower(), drop_stopwords=False)) & {"home", "ghar", "kitchen", "groceries", "carpool"}
+                    for gn in dossiers[top_pid].group_names
+                )
+                if (index.me_surnames and (top_name_toks & index.me_surnames)) or in_home_grp:
+                    top_pred.circle = "spouse"
+                    top_pred.confidence = max(top_pred.confidence, 0.78)
 
     # Step 4: Deterministic + Dossier Staff `supports_people` enrichment
     circle_map = {pid: p.circle for pid, p in predictions.items()}

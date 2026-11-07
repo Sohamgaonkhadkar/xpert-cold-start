@@ -43,9 +43,9 @@ def validate_and_repair(
     chat_participant_pids: Set[str] = {
         p for c in index.chats.values() for p in c.participant_ids if p and p != USER_ID
     }
-    all_expected_pids: Set[str] = (
-        chat_participant_pids if chat_participant_pids else set(index.all_person_ids())
-    )
+    # The official check.py derives IDs strictly from chats.jsonl participants. Never surface
+    # departed historical senders or seed-only IDs, even when there are no participant IDs.
+    all_expected_pids: Set[str] = chat_participant_pids
 
     # 1. Validate People: exact 1 circle per non-ME chat participant, no missing people, valid org/person links
     seen_pids: Dict[str, PersonPrediction] = {}
@@ -103,6 +103,46 @@ def validate_and_repair(
         cleaned_orgs.append(org)
     output.organisations = cleaned_orgs
 
+    # WhatsApp "Notes to self" chats often have participants == ["ME"] and still must be tied once.
+    self_chat_ids = {
+        cid
+        for cid, chat in index.chats.items()
+        if not any(pid and pid != USER_ID for pid in chat.participant_ids)
+    }
+    self_chat_org_id: str | None = None
+    if self_chat_ids:
+        residence = next((org for org in output.organisations if org.type == "residence"), None)
+        existing_personal = next(
+            (
+                org for org in output.organisations
+                if org.type == "other" and org.side == "home" and org.name.strip().lower() == "personal"
+            ),
+            None,
+        )
+        if residence is not None:
+            self_chat_org_id = residence.id
+        elif existing_personal is not None:
+            self_chat_org_id = existing_personal.id
+        else:
+            used_org_ids = {org.id for org in output.organisations}
+            self_chat_org_id = "personal"
+            suffix = 2
+            while self_chat_org_id in used_org_ids:
+                self_chat_org_id = f"personal_{suffix}"
+                suffix += 1
+            output.organisations.append(
+                OrganisationPrediction(
+                    id=self_chat_org_id,
+                    name="Personal",
+                    type="other",
+                    side="home",
+                    role="owner",
+                    source="repair",
+                )
+            )
+            valid_org_ids.add(self_chat_org_id)
+            repairs.append("Added Personal organisation for self-only chat(s)")
+
     # Clean person links after valid_org_ids & valid_person_ids are finalized
     for p in output.people:
         p.organisation_links = [
@@ -145,7 +185,14 @@ def validate_and_repair(
     for missing_cid in sorted(valid_chat_ids - set(seen_chats.keys())):
         chat = index.chats[missing_cid]
         non_me = [p for p in chat.participant_ids if p != USER_ID and p in valid_person_ids]
-        if non_me:
+        if missing_cid in self_chat_ids and self_chat_org_id:
+            seen_chats[missing_cid] = ChatPrediction(
+                chat_id=missing_cid,
+                owner_type="organisation",
+                owner_id=self_chat_org_id,
+                source="repair",
+            )
+        elif non_me:
             seen_chats[missing_cid] = ChatPrediction(
                 chat_id=missing_cid, owner_type="person", owner_id=non_me[0], source="repair"
             )

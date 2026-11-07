@@ -77,10 +77,13 @@ class ConversationIndex:
         self.co_participants: Dict[str, Counter[str]] = defaultdict(Counter)
         self.me_aliases: Set[str] = set()
         self.me_surnames: Set[str] = set()
+        self.mention_handle_owner: Dict[str, str] = {}
+        self.me_mention_handles: Set[str] = set()
         self._ngram_cache: Dict[str, Tuple[Counter[str], float]] = {}
 
         self._build_structural_indices()
         self._build_lexical_indices()
+        self._resolve_numeric_mentions()
         self._discover_me_aliases()
 
     def _build_structural_indices(self) -> None:
@@ -233,17 +236,74 @@ class ConversationIndex:
             if len(s_set) >= 2:
                 self.me_aliases.add(cand)
 
+        # Augment family surnames from seeded core family (spouse/parent/sibling/child) & >=3 non-role 1:1 DM contacts
+        role_or_generic_last = non_name_vocatives | {
+            "driver", "cook", "maid", "nanny", "guard", "watchman", "mali", "cleaner", "helper",
+            "caretaker", "plumber", "electrician", "carpenter", "tutor", "teacher", "coach",
+            "traders", "trading", "enterprises", "services", "solutions", "agency", "printers",
+            "press", "builders", "clinic", "doctor", "dentist", "lawyer", "advocate", "home",
+            "ghar", "office", "farm", "farmhouse", "villa", "admin", "desk", "reception",
+        }
+        def _clean_surname(raw_nm: str) -> Optional[str]:
+            # WhatsApp contact IDs / synthetic exports often embed tokens like p_scale_031 or digits;
+            # never turn those machine identifiers into a shared family surname.
+            if any(ch in raw_nm for ch in ("-", "@", "|", "_", "#")) or re.search(r"\d", raw_nm):
+                return None
+            ws = [w.lower() for w in re.findall(r"[A-Za-z]+", raw_nm) if len(w) >= 2]
+            while ws and ws[-1] in role_or_generic_last:
+                ws.pop()
+            if len(ws) >= 2 and len(ws[-1]) >= 3 and ws[-1] not in role_or_generic_last:
+                return ws[-1]
+            return None
+
+        for pid, sp in self.bundle.seed.people.items():
+            if sp.circle in ("spouse", "parent", "sibling", "child"):
+                sn = _clean_surname(self.best_name(pid))
+                if sn:
+                    self.me_surnames.add(sn)
+        dm_surname_counts: Counter[str] = Counter()
+        for pid in self.dm_chat_by_person:
+            sn = _clean_surname(self.best_name(pid))
+            if sn:
+                dm_surname_counts[sn] += 1
+        for sn, cnt in dm_surname_counts.items():
+            if cnt >= 3:
+                self.me_surnames.add(sn)
+
+    def _resolve_numeric_mentions(self) -> None:
+        """Map WhatsApp @123456 numeric JID/LID mention handles via cross-chat participant intersection."""
+        mention_re = re.compile(r"@(\d{5,})")
+        where: Dict[str, Set[str]] = defaultdict(set)
+        writers: Dict[str, Set[str]] = defaultdict(set)
+        for m in self.messages:
+            if not m.body or "@" not in m.body:
+                continue
+            for h in mention_re.findall(m.body):
+                where[h].add(m.chat_id)
+                writers[h].add(m.sender_id)
+        for h, chat_ids in where.items():
+            common: Optional[Set[str]] = None
+            for cid in chat_ids:
+                if cid in self.chats:
+                    parts = set(self.chats[cid].participant_ids)
+                    common = parts if common is None else (common & parts)
+            candidates = (common or set()) - writers[h]
+            if len(candidates) == 1:
+                owner = next(iter(candidates))
+                self.mention_handle_owner[h] = owner
+                if owner == USER_ID:
+                    self.me_mention_handles.add(h)
+
     def all_person_ids(self) -> List[str]:
-        pids: Set[str] = set(self.person_chats.keys())
-        pids.update(self.person_messages.keys())
-        pids.update(self.bundle.seed.people.keys())
-        for chat in self.chats.values():
-            for p in chat.participant_ids:
-                if p != USER_ID:
-                    pids.add(p)
-        pids.discard(USER_ID)
-        pids.discard("")
-        return sorted(pids)
+        """Official check.py only accepts person_ids present in chats.jsonl `participants` (excluding ME)."""
+        return sorted(
+            {
+                p
+                for chat in self.chats.values()
+                for p in chat.participant_ids
+                if p and p != USER_ID
+            }
+        )
 
     def best_name(self, person_id: str) -> str:
         if person_id == USER_ID:
