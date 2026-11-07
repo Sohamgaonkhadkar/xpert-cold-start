@@ -225,7 +225,7 @@ def apply_intervention_policy(
             else "colleague"
         )
 
-        # Estimate calibrated class probabilities P(assist), P(remind), P(leave)
+        # Hand-set class weights; dev intervention labels do not calibrate them.
         probs = _estimate_action_posteriors(
             loop=loop,
             combined_text=combined_text,
@@ -355,7 +355,7 @@ def _estimate_action_posteriors(
     origin_msg_ts: datetime,
     anchor_ts: datetime,
 ) -> Dict[str, float]:
-    """Compute calibrated probabilities over {assist, remind, leave} from structural & lexical features."""
+    """Compute hand-set action weights from structural and lexical features."""
     # Case 1: Owned by someone OTHER than ME (`loop.owner != "ME"`)
     if loop.owner != USER_ID:
         # Staff, spouse, child, parent, sibling, friend handling their own task -> stay out!

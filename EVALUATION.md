@@ -1,7 +1,7 @@
 # Independent evaluation - 7 November 2026
 
-**NOT READY TO SUBMIT.** Genuine development performance remains weak. Further runs
-with provider-aware cooldown are in progress; this branch is for review, not submission.
+**NOT READY TO SUBMIT.** Genuine development performance remains weak. Real-model runs exposed temporary in-flight limits followed by permanent insufficient
+account credits; this branch is for review, not submission.
 No hidden-set score or ranking is claimed.
 
 ## Verified integration and data
@@ -26,11 +26,15 @@ by evaluation tooling. Private data and predictions remain ignored.
 | Hardened deterministic, dev | 6.439 | 2.322 | 6.341 | unlabelled | 1.859 | 2.838 | unlabelled | 19.799/56 |
 | Arena live GPT-4.1 mini, dev | 6.439 | 2.363 | 6.829 | unlabelled | 1.766 | 2.081 | unlabelled | 19.478/56 |
 | Hardened live, credit-limited recheck | 6.732 | 2.382 | 6.537 | unlabelled | 1.859 | 2.838 | unlabelled | 20.347/56 |
+| Hardened live GPT-4.1 mini, serial, credit-limited | 7.024 | 1.403 | 6.439 | unlabelled | 1.859 | 2.838 | unlabelled | 19.563/56 |
+| Hardened live GPT-4o mini, credit-limited | 6.439 | 2.322 | 6.341 | unlabelled | 1.859 | 2.838 | unlabelled | 19.799/56 |
 | Official example, deterministic/live | 12 | 8 | 8 | 8 | 14 | 14 | 10 | 74/74 |
 
 The credit-limited recheck had **204 HTTP 402 rejections** and only 18 successful
 responses. It is not a clean model comparison. The first hardened live run also
-suffered 195 failed attempts. Both runs are retained in the aggregate JSON.
+suffered 195 failed attempts. All runs are retained in the aggregate JSON. The serial GPT-4.1 mini run still had
+197 HTTP 402s; GPT-4o mini had 181. Neither supports a model ranking. The two serial
+runs overlapped briefly on a shared account, so their latency is also confounded.
 
 | Dev mode | Successful responses | Input tokens | Output tokens | Provider USD | USD /1k messages | Wall seconds |
 |---|---:|---:|---:|---:|---:|---:|
@@ -38,6 +42,8 @@ suffered 195 failed attempts. Both runs are retained in the aggregate JSON.
 | Hardened deterministic | 0 | 0 | 0 | 0 | 0 | 8.33 |
 | Arena live `openai/gpt-4.1-mini` | 39 | 128022 | 17264 | 0.0788312 | 0.0175103 | 92.07 |
 | Hardened live, credit-limited recheck | 18 | 64764 | 9722 | 0.040424 | 0.0089791 | 63.37 |
+| Hardened live `openai/gpt-4.1-mini`, serial | 34 | 98795 | 13075 | 0.042390 | 0.0094158 | 789.08 |
+| Hardened live `openai/gpt-4o-mini`, serial | 43 | 38565 | 1602 | 0.00674595 | 0.0014984 | 229.88 |
 
 Tokens and cost in live rows are returned by OpenRouter for successful responses;
 failed requests can omit usage. These are not complete account billing reconciliations.
@@ -79,6 +85,27 @@ fallback, rate/server/auth failures, budget/deadline checks, missing usage, redi
 cache, invalid output, missing input/schema, reference integrity and closure guards.
 Model response logs never go to external logging services.
 
+## Scale and remaining model blocker
+The regenerated mock 20k-message /320-chat fixture completed local compute in 1.187 s,
+with 14 mock calls and estimated tokens/cost. The same-size official-format synthetic
+fixture was also sent through the real client: 4.025 s, valid schema/references,
+**zero successful responses and 12 HTTP 402 rejections**. This is measured network
+failure/fallback behavior, not successful live-model scalability. It cannot establish
+hidden-set quality or realistic dense-task latency.
+
+OpenRouter ultimately returned `openrouter_credits` with **Insufficient credits** and
+stated that the account had never purchased credits. A large per-key spending limit
+does not establish funded account balance. No account settings were changed and no
+credits were purchased. A funded permitted endpoint is required for the remaining
+clean comparisons. The final temporal slow-pass gate now avoids escalating unrelated
+later turns; it passed offline regressions but could not be re-evaluated with a fully
+available model after this blocker. Neither tested model is selected for grading yet.
+
+The Linux entrypoint now adds a 1740-second watchdog (when coreutils timeout is present),
+with a five-second kill grace and meaningful nonzero timeout exit, in addition to the
+client's shorter deadline. It guards hangs; it does not prove useful predictions will
+finish under all hidden workloads.
+
 ## Fair public comparison
 On the same official dev set, we locally reproduced **27.646/56**, 17.67% loop precision
 and 51.35% recall for CodeInfinity1/cold-start at
@@ -91,8 +118,12 @@ qualitative. A fresh GitHub repository search found no additional populated matc
 ## Reproducibility and privacy
 A fresh Windows virtual environment installed all declared dependencies. The official
 shell entrypoint works from a different current directory and with spaces, and the
-public example also scores 74/74 with `python -S` (stdlib only). Linux CI is configured
-but not yet verified. Docker is installed but its Linux daemon was not running.
+public example also scores 74/74 with `python -S` (stdlib only). All 76 tests passed locally. Clean Linux CI passed on Python 3.10, 3.12 and 3.14,
+and the additional `python:3.12-slim` container passed installation, all tests, the
+required two-argument shell command, official scoring and stdlib-only execution.
+[Verified CI run](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/runs/42367659348).
+The official dev output is exactly unchanged by JSONL line-order shuffling. The local
+Docker daemon was unavailable, so container verification used GitHub Actions.
 
 Tracked files and all four pre-hardening history commits showed no private dataset
 paths or common API-key/private-key patterns. This is a scoped scan, not a proof that
@@ -101,6 +132,13 @@ usage logs, virtual environments and caches are ignored. Repository visibility w
 not changed. Original Arena session transcripts were unavailable; the genuine summary
 is retained and labelled as a summary. Visible Codex messages and the mission prompt
 are preserved, excluding private tool payloads and internal reasoning.
+
+## Final review verdict
+**NOT READY TO SUBMIT**: measured dev accuracy trails the reproduced public baseline;
+model runs are fallback-heavy, the final model routing refinement needs a funded
+endpoint comparison, goal/intervention calibration lacks labels, and dense hidden-set
+network runtime remains unverified. Packaging and offline execution are validated.
+The final improvement branch has not been merged and the challenge has not been submitted.
 
 ## Sources
 - Official challenge and FAQ: https://goals.xpert.chat/w/intern

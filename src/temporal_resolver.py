@@ -727,6 +727,20 @@ def _evaluate_trail_deterministic(
                 or POSTPONE_RE.search(nb)
             ):
                 continue
+            overlap = _compute_token_overlap(
+                tokenize(rb, drop_stopwords=True), cand.signature_tokens,
+                allow_asr_fuzzy=(cand.origin_msg.kind == "voice_transcript" or m.kind == "voice_transcript"),
+            )
+            origin_turn = index.enriched_by_id.get(cand.origin_msg.id)
+            response_turn = index.enriched_by_id.get(m.id)
+            adjacent = (
+                m.chat_id == cand.origin_msg.chat_id
+                and origin_turn is not None and response_turn is not None
+                and response_turn.chat_index == origin_turn.chat_index + 1
+                and (m.ts - cand.origin_msg.ts) <= timedelta(minutes=10)
+            )
+            if not (m.quoted_id in thread_ids or overlap >= 1 or adjacent or SHORT_DM_COMPLETION_RE.match(rb)):
+                continue
             has_unguarded_owner_turn = True
             break
         if has_unguarded_owner_turn:

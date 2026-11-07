@@ -20,4 +20,9 @@ else
     PYTHON_BIN="python"
 fi
 
+# Leave a minute for evaluator cleanup. The client has a shorter inference
+# budget, and this Linux watchdog also covers local work or a stuck connection.
+if [[ "${OSTYPE:-}" == linux* ]] && command -v timeout >/dev/null 2>&1; then
+    exec timeout --signal=TERM --kill-after=5s 1740s "$PYTHON_BIN" -m src.cli "$@"
+fi
 exec "$PYTHON_BIN" -m src.cli "$@"

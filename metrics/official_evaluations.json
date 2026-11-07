@@ -655,5 +655,413 @@
       "08_validation_and_serialization": 0.0034,
       "total_sec": 9.1824
     }
+  },
+  "hardened_live_gpt41mini_serial": {
+    "messages": 4502,
+    "chats": 138,
+    "validation_errors": [],
+    "scores": {
+      "circles": 0.5853658536585366,
+      "organisations": 0.17535485347985347,
+      "chats": 0.8048780487804879,
+      "goals": null,
+      "loops_found": 0.1327800829875519,
+      "loops_closed": 0.20270270270270271,
+      "help": null
+    },
+    "points": {
+      "circles": 7.024390243902438,
+      "organisations": 1.4028388278388277,
+      "chats": 6.439024390243903,
+      "goals": null,
+      "loops_found": 1.8589211618257266,
+      "loops_closed": 2.837837837837838,
+      "help": null
+    },
+    "total": 19.563012461648732,
+    "possible": 56,
+    "loops": {
+      "predicted": 408,
+      "actual": 74,
+      "matched": 32,
+      "precision": 0.0784313725490196,
+      "recall": 0.43243243243243246,
+      "f1": 0.1327800829875519,
+      "false_done": 0,
+      "missed_completions_matched": 17,
+      "missed_completions_including_undiscovered": 47,
+      "false_dropped": 0,
+      "incorrect_owner_matched": 4,
+      "incorrect_intervention_on_leave": 0,
+      "interventions_labelled": 0
+    },
+    "circle_confusions": {
+      "spouse -> sibling": 1,
+      "relative -> friend": 1,
+      "colleague -> staff": 1,
+      "staff -> friend": 1,
+      "relative -> colleague": 1,
+      "partner -> friend": 2,
+      "colleague -> friend": 2,
+      "sibling -> client": 1,
+      "client -> colleague": 3,
+      "client -> friend": 2,
+      "client -> vendor": 1,
+      "parent -> relative": 1
+    },
+    "goals_labelled": false,
+    "model": "openai/gpt-4.1-mini",
+    "source_revision": "33ebccc237ade137bd76921c57d86aed85342a8b",
+    "source_has_worktree_changes": true,
+    "runtime_sec": 789.0833338000084,
+    "actual_calls": 34,
+    "actual_prompt_tokens": 98795,
+    "actual_completion_tokens": 13075,
+    "provider_cost_usd": 0.04239,
+    "provider_dollars_per_1k_messages": 0.009415815193247445,
+    "estimated_cost_usd": 0.060438,
+    "stage_tokens": {
+      "relationship_inference": {
+        "calls": 11,
+        "prompt_tokens": 51229,
+        "completion_tokens": 9777,
+        "total_tokens": 61006
+      },
+      "chat_ownership": {
+        "calls": 1,
+        "prompt_tokens": 8849,
+        "completion_tokens": 620,
+        "total_tokens": 9469
+      },
+      "goal_extraction": {
+        "calls": 1,
+        "prompt_tokens": 1536,
+        "completion_tokens": 72,
+        "total_tokens": 1608
+      },
+      "loop_discovery": {
+        "calls": 6,
+        "prompt_tokens": 23250,
+        "completion_tokens": 2010,
+        "total_tokens": 25260
+      },
+      "temporal_slow_verify": {
+        "calls": 15,
+        "prompt_tokens": 13931,
+        "completion_tokens": 596,
+        "total_tokens": 14527
+      }
+    },
+    "usage_details": {
+      "model": "openai/gpt-4.1-mini",
+      "calls": 34,
+      "cache_hits": 0,
+      "prompt_tokens": 98795,
+      "completion_tokens": 13075,
+      "total_tokens": 111870,
+      "estimated_cost_usd": 0.060438,
+      "stages": {
+        "relationship_inference": {
+          "calls": 11,
+          "prompt_tokens": 51229,
+          "completion_tokens": 9777,
+          "total_tokens": 61006
+        },
+        "chat_ownership": {
+          "calls": 1,
+          "prompt_tokens": 8849,
+          "completion_tokens": 620,
+          "total_tokens": 9469
+        },
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 1536,
+          "completion_tokens": 72,
+          "total_tokens": 1608
+        },
+        "loop_discovery": {
+          "calls": 6,
+          "prompt_tokens": 23250,
+          "completion_tokens": 2010,
+          "total_tokens": 25260
+        },
+        "temporal_slow_verify": {
+          "calls": 15,
+          "prompt_tokens": 13931,
+          "completion_tokens": 596,
+          "total_tokens": 14527
+        }
+      },
+      "usage_source": "provider_or_estimate",
+      "http_requests": 231,
+      "failed_attempts": 197,
+      "budget_skips": 0,
+      "estimated_usage_calls": 0,
+      "provider_cost_usd": 0.042390000000000004,
+      "provider_cost_calls": 34,
+      "failure_types": {
+        "HTTP_402": 197
+      }
+    },
+    "stage_timings_sec": {
+      "01_ingest_and_index": 0.1152,
+      "02_relationship_inference": 198.2643,
+      "03_organisation_and_chat_inference": 5.4132,
+      "04_goal_extraction": 1.9266,
+      "05_loop_discovery_and_reconciliation": 582.3358,
+      "06_intervention_policy": 0.2028,
+      "07_corrections": 0.0,
+      "08_validation_and_serialization": 0.0461,
+      "total_sec": 788.5915
+    },
+    "interpretation": "Provider-credit-limited run with deterministic fallback. Not a clean model-quality comparison."
+  },
+  "hardened_live_gpt4omini_credit_limited": {
+    "messages": 4502,
+    "chats": 138,
+    "validation_errors": [],
+    "scores": {
+      "circles": 0.5365853658536586,
+      "organisations": 0.2902763902763903,
+      "chats": 0.7926829268292683,
+      "goals": null,
+      "loops_found": 0.1327800829875519,
+      "loops_closed": 0.20270270270270271,
+      "help": null
+    },
+    "points": {
+      "circles": 6.439024390243903,
+      "organisations": 2.3222111222111224,
+      "chats": 6.341463414634147,
+      "goals": null,
+      "loops_found": 1.8589211618257266,
+      "loops_closed": 2.837837837837838,
+      "help": null
+    },
+    "total": 19.799457926752737,
+    "possible": 56,
+    "loops": {
+      "predicted": 408,
+      "actual": 74,
+      "matched": 32,
+      "precision": 0.0784313725490196,
+      "recall": 0.43243243243243246,
+      "f1": 0.1327800829875519,
+      "false_done": 0,
+      "missed_completions_matched": 17,
+      "missed_completions_including_undiscovered": 47,
+      "false_dropped": 0,
+      "incorrect_owner_matched": 5,
+      "incorrect_intervention_on_leave": 0,
+      "interventions_labelled": 0
+    },
+    "circle_confusions": {
+      "spouse -> sibling": 1,
+      "relative -> colleague": 2,
+      "relative -> friend": 1,
+      "colleague -> friend": 3,
+      "staff -> friend": 1,
+      "partner -> friend": 2,
+      "sibling -> client": 1,
+      "client -> colleague": 3,
+      "client -> friend": 3,
+      "sibling -> relative": 1,
+      "parent -> relative": 1
+    },
+    "goals_labelled": false,
+    "model": "openai/gpt-4o-mini",
+    "source_revision": "43a61e8c277c82a95de62a50f1129c4fa9068d0c",
+    "inference_source_sha256": "9b04e2d05b74920629f8d9b149915b21c9894c34727bd494bff39ca9842cfe08",
+    "concurrency": 1,
+    "source_has_worktree_changes": true,
+    "runtime_sec": 229.8788704000035,
+    "actual_calls": 43,
+    "actual_prompt_tokens": 38565,
+    "actual_completion_tokens": 1602,
+    "provider_cost_usd": 0.00674595,
+    "provider_dollars_per_1k_messages": 0.001498434029320302,
+    "estimated_cost_usd": 0.006746,
+    "stage_tokens": {
+      "goal_extraction": {
+        "calls": 1,
+        "prompt_tokens": 1536,
+        "completion_tokens": 130,
+        "total_tokens": 1666
+      },
+      "temporal_slow_verify": {
+        "calls": 42,
+        "prompt_tokens": 37029,
+        "completion_tokens": 1472,
+        "total_tokens": 38501
+      }
+    },
+    "usage_details": {
+      "model": "openai/gpt-4o-mini",
+      "calls": 43,
+      "cache_hits": 0,
+      "prompt_tokens": 38565,
+      "completion_tokens": 1602,
+      "total_tokens": 40167,
+      "estimated_cost_usd": 0.006746,
+      "stages": {
+        "goal_extraction": {
+          "calls": 1,
+          "prompt_tokens": 1536,
+          "completion_tokens": 130,
+          "total_tokens": 1666
+        },
+        "temporal_slow_verify": {
+          "calls": 42,
+          "prompt_tokens": 37029,
+          "completion_tokens": 1472,
+          "total_tokens": 38501
+        }
+      },
+      "usage_source": "provider_or_estimate",
+      "http_requests": 224,
+      "failed_attempts": 181,
+      "budget_skips": 0,
+      "estimated_usage_calls": 0,
+      "provider_cost_usd": 0.006745950000000001,
+      "provider_cost_calls": 43,
+      "failure_types": {
+        "HTTP_402": 181
+      }
+    },
+    "stage_timings_sec": {
+      "01_ingest_and_index": 0.149,
+      "02_relationship_inference": 4.2082,
+      "03_organisation_and_chat_inference": 0.2381,
+      "04_goal_extraction": 123.9676,
+      "05_loop_discovery_and_reconciliation": 100.1667,
+      "06_intervention_policy": 0.2079,
+      "07_corrections": 0.0,
+      "08_validation_and_serialization": 0.0378,
+      "total_sec": 229.2864
+    },
+    "interpretation": "Provider-credit-limited run with deterministic fallback. Not a clean model-quality comparison."
+  },
+  "synthetic_20k_live_endpoint_rejected": {
+    "messages": 20000,
+    "chats": 320,
+    "validation_errors": [],
+    "model": "openai/gpt-4o-mini",
+    "source_revision": "05cc417d92f2c4b2bf8b3354af9711b456fa9433",
+    "inference_source_sha256": "8440a8dae1e07c07d8e2d48fb4c88d7bf332f519aecd7890bd2f1e339af2fdcb",
+    "concurrency": 1,
+    "source_has_worktree_changes": true,
+    "runtime_sec": 4.024867200001609,
+    "actual_calls": 0,
+    "actual_prompt_tokens": 0,
+    "actual_completion_tokens": 0,
+    "provider_cost_usd": null,
+    "provider_dollars_per_1k_messages": null,
+    "estimated_cost_usd": 0.0,
+    "stage_tokens": {},
+    "usage_details": {
+      "model": "openai/gpt-4o-mini",
+      "calls": 0,
+      "cache_hits": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "stages": {},
+      "usage_source": "provider_or_estimate",
+      "http_requests": 12,
+      "failed_attempts": 12,
+      "budget_skips": 0,
+      "estimated_usage_calls": 0,
+      "provider_cost_usd": null,
+      "provider_cost_calls": 0,
+      "failure_types": {
+        "HTTP_402": 12
+      }
+    },
+    "stage_timings_sec": {
+      "01_ingest_and_index": 0.3041,
+      "02_relationship_inference": 0.5917,
+      "03_organisation_and_chat_inference": 0.1311,
+      "04_goal_extraction": 0.2215,
+      "05_loop_discovery_and_reconciliation": 1.8284,
+      "06_intervention_policy": 0.2693,
+      "07_corrections": 0.0,
+      "08_validation_and_serialization": 0.0226,
+      "total_sec": 3.6254
+    },
+    "interpretation": "Synthetic sparse-task scale fixture. All 12 requests were rejected with HTTP 402; runtime is failure/fallback only, not successful network inference."
+  },
+  "verification": {
+    "offline_tests": 76,
+    "linux_python_versions": [
+      "3.10",
+      "3.12",
+      "3.14"
+    ],
+    "clean_container": "python:3.12-slim",
+    "ci_run": "https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/runs/42367659348",
+    "official_dev_message_order_shuffle": "exact prediction match",
+    "source_note": "The final relevance-only temporal routing refinement was regression-tested offline after account credits exhausted; final hybrid quality remains unverified."
+  },
+  "session_logged_usage": {
+    "successful_http_responses": 183,
+    "provider_reported_cost_usd": 0.20208955,
+    "provider_cost_coverage_responses": 183,
+    "note": "Includes baseline, repeat/probe/diagnostic runs and both models. Only usage returned by the provider is included; failed requests can omit billing. Not a reconciled account invoice."
+  },
+  "final_deterministic_verification": {
+    "messages": 4502,
+    "chats": 138,
+    "validation_errors": [],
+    "scores": {
+      "circles": 0.5365853658536586,
+      "organisations": 0.2902763902763903,
+      "chats": 0.7926829268292683,
+      "goals": null,
+      "loops_found": 0.1327800829875519,
+      "loops_closed": 0.20270270270270271,
+      "help": null
+    },
+    "points": {
+      "circles": 6.439024390243903,
+      "organisations": 2.3222111222111224,
+      "chats": 6.341463414634147,
+      "goals": null,
+      "loops_found": 1.8589211618257266,
+      "loops_closed": 2.837837837837838,
+      "help": null
+    },
+    "total": 19.799457926752737,
+    "possible": 56,
+    "loops": {
+      "predicted": 408,
+      "actual": 74,
+      "matched": 32,
+      "precision": 0.0784313725490196,
+      "recall": 0.43243243243243246,
+      "f1": 0.1327800829875519,
+      "false_done": 0,
+      "missed_completions_matched": 17,
+      "missed_completions_including_undiscovered": 47,
+      "false_dropped": 0,
+      "incorrect_owner_matched": 5,
+      "incorrect_intervention_on_leave": 0,
+      "interventions_labelled": 0
+    },
+    "circle_confusions": {
+      "spouse -> sibling": 1,
+      "relative -> colleague": 2,
+      "relative -> friend": 1,
+      "colleague -> friend": 3,
+      "staff -> friend": 1,
+      "partner -> friend": 2,
+      "sibling -> client": 1,
+      "client -> colleague": 3,
+      "client -> friend": 3,
+      "sibling -> relative": 1,
+      "parent -> relative": 1
+    },
+    "goals_labelled": false,
+    "runtime_sec": 6.3133
   }
 }

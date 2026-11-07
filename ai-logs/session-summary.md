@@ -1,3 +1,5 @@
+> Original Arena summary, not a session transcript. Its historical results include synthetic/mock claims. See EVALUATION.md for independent measurements. Original Arena transcripts were unavailable and have not been reconstructed.
+
 # AI Coding & Engineering Session Log
 
 ## 1. Problem Framing & Research-First Steering

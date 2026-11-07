@@ -28,6 +28,14 @@ def load_credentials(path):
         raise ValueError("All three LLM environment variables are required")
 
 
+def validate_official_input(folder):
+    # Fixture aliases accepted by the engine are not accepted by official check.py.
+    # Catch that before spending model credits on an unscorable benchmark.
+    rows = [json.loads(line) for line in (Path(folder) / "chats.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    if any(not isinstance(chat.get("participants"), list) for chat in rows):
+        raise ValueError("Official evaluation requires the chats.jsonl participants field")
+
+
 def main():
     parser = argparse.ArgumentParser(__doc__)
     parser.add_argument("input")
@@ -38,6 +46,7 @@ def main():
     args = parser.parse_args()
     repo = Path(__file__).resolve().parent.parent
     data = Path(args.input).resolve()
+    validate_official_input(data)
     output = Path(args.output_dir).resolve()
     # These files include raw conversation-derived predictions. Refuse a location
     # not covered by .gitignore, even for an accidental command-line typo.

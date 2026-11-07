@@ -1,6 +1,6 @@
 # Codex visible conversation transcript - 7 November 2026
 
-Exported from this genuine Codex session. Internal reasoning, developer/system instructions and tool payloads are omitted. Tool output included private challenge messages and is intentionally excluded. This is a partial transcript through export time, not a reconstruction of Arena sessions.
+Genuine user/assistant messages exported from this session through the export time. Internal reasoning, system/developer instructions and tool payloads are omitted. Tool payloads included private challenge conversations. This is a partial transcript, not a reconstruction of Arena sessions. Local credential-file paths are redacted.
 
 
 ## User - 2026-11-07T10:34:21.136Z
@@ -106,3 +106,36 @@ The write-up renders to two pages. I’m checking the hardened version next, inc
 ## Assistant - 2026-11-07T11:03:05.579Z
 
 The hardened live run completed, but many requests failed and fell back to deterministic inference. I’m treating that as a failed comparison, not a model-quality result. Isolated requests succeed; I’m checking the evaluation runner and concurrent requests before rerunning it.
+
+
+## Assistant - 2026-11-07T11:05:42.535Z
+
+I found the cause: OpenRouter is returning **HTTP 402 with `openrouter_in_flight_budget`**, a temporary limit on running and recently completed requests. Its documentation recommends waiting and retrying for this specific error. I’m adding that handling and reducing concurrency for the comparison runs. [OpenRouter limits](https://openrouter.ai/docs/api/reference/limits)
+
+
+## Assistant - 2026-11-07T11:13:15.769Z
+
+The offline checks pass, including execution from another directory with spaces in paths and the correction demo. I also reproduced the known competitor’s deterministic **27.65/56** on the same official dev set; it currently outperforms our measured runs.
+
+The model comparison is continuing with provider-aware backoff. I’ve also removed fixed benchmark message IDs from the synthetic responder and labelled its results explicitly as mock-model regressions.
+
+
+## Assistant - 2026-11-07T11:18:18.499Z
+
+All **75 tests pass**, and GitHub’s clean Linux runs passed on Python **3.10, 3.12 and 3.14**, including dependency installation, official-example validation and paths with spaces. The improvements are pushed to the review branch.
+
+The real-model runs remain slow under the account’s in-flight limits. I’m also testing the cheaper `openai/gpt-4o-mini` and will report failed calls and overlap-related timing limits alongside its result.
+
+
+## Assistant - 2026-11-07T11:25:15.994Z
+
+OpenRouter now reports a permanent blocker: **insufficient account credits**, distinct from the earlier temporary in-flight limit. Both models returned real responses, but provider rejections prevented a clean comparison, so I won’t recommend a model from these runs.
+
+The clean-container CI job passed. The 20k-message fixture also produced valid output, but every model request in that scale run was rejected; its four-second runtime measures failure-and-fallback behavior. I’m recording these limits and finishing the review package.
+
+
+## Assistant - 2026-11-07T11:30:54.054Z
+
+The final offline suite passes **76 tests**, and the deterministic dev score remains **19.80/56**. The measured false DONE count fell from one to zero, with more missed completions—a trade-off documented in the report.
+
+The reviewed write-up is two pages, credentials and private data are untracked, and logged provider-reported cost across the evaluations and probes totals **$0.20209**. I’m publishing the final review update. The verdict is **NOT READY TO SUBMIT**: accuracy remains weak, and a clean live comparison needs funded endpoint access.

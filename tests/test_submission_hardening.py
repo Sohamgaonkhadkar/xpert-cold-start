@@ -211,6 +211,12 @@ def test_unrelated_later_dm_response_cannot_answer_old_question(tmp_path):
                    dates=["2026-10-02T10:00:00+05:30", "2026-10-02T10:01:00+05:30", "2026-10-02T11:00:00+05:30"])
     _, payload = run_pipeline(data)
     assert next(l for l in payload["open_loops"] if l["source_msg"] == "s0")["status"] == "open"
+    stages = []
+    def mock(stage, system, user):
+        stages.append((stage, user))
+        return {}
+    run_pipeline(data, mock_responder=mock)
+    assert not any(stage == "temporal_slow_verify" and "[s0 |" in user for stage, user in stages)
 
 
 def test_llm_cannot_close_on_unquoted_bare_ack(tmp_path):
@@ -242,3 +248,14 @@ def test_cli_invalid_schema_nonzero(tmp_path):
                              "--schema", str(tmp_path / "absent.json")], capture_output=True, text=True)
     assert result.returncode == 1 and "Failed:" in result.stderr
     assert not (tmp_path / "out.json").exists()
+
+
+def test_live_benchmark_rejects_fixture_alias_before_network(tmp_path):
+    from scripts.live_evaluation import validate_official_input
+    data = fixture(tmp_path, [("ME", "Hello")])
+    validate_official_input(data)
+    chat = json.loads((data / "chats.jsonl").read_text())
+    chat["participant_ids"] = chat.pop("participants")
+    (data / "chats.jsonl").write_text(json.dumps(chat), encoding="utf-8")
+    with pytest.raises(ValueError, match="participants field"):
+        validate_official_input(data)

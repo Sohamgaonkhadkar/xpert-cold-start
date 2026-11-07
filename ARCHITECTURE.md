@@ -1,3 +1,5 @@
+> Historical Arena design rationale. Numerical benchmark and calibration claims below are not independent performance evidence. See EVALUATION.md for reproduced official scores, endpoint costs and limitations.
+
 # Architecture Decision Record: `Dossier-ARR-PRISM`
 
 ## 1. Executive Summary

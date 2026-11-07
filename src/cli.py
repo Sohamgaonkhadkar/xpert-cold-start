@@ -52,6 +52,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.quiet:
         tel = output.telemetry
+        if tel.model_used != "deterministic-tier0" and tel.llm_calls == 0:
+            sys.stderr.write("[xpert-cold-start] No successful model responses; using deterministic fallback.\n")
         sys.stderr.write(
             f"[xpert-cold-start] Completed in {tel.stage_timings_sec.get('total_sec', 0.0):.2f}s | "
             f"msgs={tel.total_messages} | model={tel.model_used} | "

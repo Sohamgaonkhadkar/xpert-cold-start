@@ -1,75 +1,86 @@
 # Xpert Cold Start: Dossier-ARR-PRISM
 
-## Focus and approach
-We prioritize people and organisation context, open-loop discovery, conservative closure,
-and restraint in assistant interventions. A false completion hides work; an intrusive
-reminder can make an otherwise useful assistant unwelcome. We preserve the existing
-Python architecture and use selective model inference rather than an expensive
-multi-agent system. The submission is a batch JSON program, with no frontend or database.
+## What we focused on
 
-Dossiers combine saved-name aliases, seed relationships, chat membership and short
-speaker-attributed message samples. Organisation routing separates home and work,
-uses member overlap, and guards against treating external client businesses as owned
-organisations. Goals require message evidence and user endorsement, with at most ten.
+We prioritize relationship context, task discovery, conservative closure and restraint
+in interventions. A false completion hides work; an intrusive reminder can make an
+assistant unwelcome. We preserved the existing Python architecture and added targeted
+fixes, rather than rebuilding it. Selective inference avoids paying a model to read
+routine chatter. The deliverable is a batch JSON program, with no frontend or database.
 
-Anchor-Retrieve-Reconcile keeps original turns and searches chronological local and
-cross-chat trails for each commitment, request, deadline or decision. Dates anchor to
-message time. Passing a due date never means completion; acknowledgements, future
-intent, partial progress and unrelated speakers cannot establish execution. Explicit
-cancellation can drop a loop; later failure evidence can reopen it. We enumerate all
-history: only the official checker knows the hidden scoring cutoff.
+## Architecture
 
-PRISM uses an asymmetric loss gate for assist/remind/leave. These loss values and
-probabilities are hand-set design choices, not empirically calibrated posteriors.
-External actions require approval; private preparation can proceed without it.
-Corrections override individual relationships, chat owners and task owners/statuses.
-Closing a corrected task requires actual later message evidence.
+Contact dossiers combine seed relationships, saved-name aliases, chat membership and
+speaker-attributed samples. Organisation routing separates home and work and guards
+against promoting a client's business into the user's organisations. Goals require
+actual message evidence and user endorsement, with at most ten predictions.
 
-## Evaluation and cost
-On 7 November 2026 we downloaded the official starter and dev archives directly from
-the challenge. Schema, checker and example match after newline normalization. Dev has
-4,502 messages and 138 chats. Goals and interventions are **not labelled** there, so
-its denominator is 56, whereas the worked example scores all seven categories /74.
+Anchor-Retrieve-Reconcile retains original turns and retrieves local and cross-chat
+trails for commitments, requests, deadlines and decisions. Dates anchor to message
+time. Expired deadlines never imply completion. Acknowledgements, future intent,
+partial progress and unrelated later replies cannot establish execution. Cancellation
+can drop a loop; later failure evidence can reopen it. We enumerate all history;
+the checker alone applies the hidden scoring cutoff.
 
-| Deterministic run | Official example /74 | Official dev /56 | Calls / tokens |
+PRISM uses an asymmetric loss gate for assist/remind/leave. Its probabilities and
+loss values are hand-set assumptions, not empirically calibrated posteriors. External
+actions require approval; private preparation can proceed without it. Exact-ID
+corrections change relationships, chat ownership and task ownership/status while
+preserving unrelated predictions. Closing a corrected task requires later evidence.
+
+## Evaluation and actual cost
+
+On 7 November we downloaded the official archives directly. Schema, checker and example
+match after newline normalization. Dev contains 4,502 messages /138 chats. Goals and
+interventions are unlabelled there: its denominator is 56, whereas the example is /74.
+
+| Run on official dev | Score /56 | Provider USD /1k messages | Seconds |
 |---|---:|---:|---:|
-| Original Arena | 74.00 | 18.68 | 0 / 0 |
-| Hardened implementation | 74.00 | 19.61 | 0 / 0 |
+| Original Arena, deterministic | 18.68 | 0 | 7.00 |
+| Hardened, deterministic | 19.80 | 0 | 8.33 |
+| Original Arena, GPT-4.1 mini live | 19.48 | 0.01751 | 92.07 |
+| Hardened GPT-4.1 mini, serial /credit-limited | 19.56 | 0.00942 | 789.08 |
+| Hardened GPT-4o mini, serial /credit-limited | 19.80 | 0.00150 | 229.88 |
 
-The original dev run took 7.00 seconds; the hardened run took 8.59 seconds on Windows.
-Both cost $0 per 1,000 messages because neither called a model. Real-model quality,
-provider token counts and network runtime remain unverified until credentials are
-available to the executing process. No production model is selected on synthetic
-scores. The evaluator uses OpenRouter; the submitted identifier must be the exact ID
-we actually test before submission.
+Exact tested OpenRouter IDs: **openai/gpt-4.1-mini** and **openai/gpt-4o-mini**.
+The original live run returned 128,022 input /17,264 output tokens in 39 responses,
+provider cost $0.0788312. Hardened serial runs returned 98,795 /13,075 tokens in 34
+responses ($0.042390), and 38,565 /1,602 in 43 responses ($0.00674595), respectively.
+Relationship and loop-discovery prompts dominated original token use; detailed stage
+counts are in EVALUATION.md and the aggregate JSON. These are provider-reported costs,
+not price-table estimates; failed requests may omit usage.
 
-Historical synthetic results (92.58/93 under a custom rubric) used a test-aware mock
-responder with estimated tokens. They establish regression behavior only. They are
-not official dev scores, live-model measurements, hidden-set estimates or rankings.
-The 20,000-message/320-chat synthetic tests likewise measure local compute with sparse
-tasks; they do not establish a 30-minute live-model bound.
+Both hardened model runs suffered many HTTP 402s and deterministic fallbacks, followed
+by permanent insufficient account credits. They overlapped briefly on a shared account;
+latency is confounded. We cannot rank models or select a grading model from these runs.
+The official example scores 74/74 in offline and tested live mode. Historical custom
+synthetic scores used a test-aware mock and a different rubric; they are not dev scores.
 
 ## Where it fails
-In genuine dev evaluation, loop precision improved from 7.25% to 7.84%, recall from
-37.84% to 43.24%, and F1 from 12.17% to 13.28%. There were 32 matched loops among
-408 predictions against 74 labels, one false DONE, 16 missed completions among matched
-loops and five incorrect task owners. The official dev README warns that loop labels
-are incomplete; unmatched predictions are not all necessarily invalid tasks.
 
-Unseeded circle accuracy is 53.66%. Sparse contacts, dual roles, family discussions
-containing work vocabulary, implicit obligations, short unquoted closures and missing
-cross-chat topic links remain weak. Some labels accept extremely indirect messages.
-We do not hardcode their identities or duplicate tasks to exploit repeated answer
-sources. Dev goals and intervention errors cannot be measured, and hidden performance
-is unknown. Better live-model coverage must be demonstrated rather than assumed.
+Hardened deterministic dev loops have 7.84% precision, 43.24% recall and 13.28% F1:
+32 matches among 408 predictions against 74 labels. There are zero false DONE among
+matched loops, 17 missed completions among matched loops (47 including undiscovered
+ones), and five owner errors. Original deterministic recall was 37.84%, with one false
+DONE. The official README warns that its loop labels are incomplete; unmatched
+predictions are not all necessarily invalid tasks.
 
-## Engineering decisions
-Inference never reads answer files. The client sends only to the configured model
-endpoint, caches repeated requests, limits concurrency, rechecks deadlines on retries,
-and reserves estimated in-flight request cost. Provider-reported cost, when supplied,
-is recorded separately from price-table estimates. Estimates cannot guarantee billing
-for failures where a provider omits usage. Invalid output fails with a nonzero exit;
-validated output is replaced atomically. Offline CI covers clean dependency installation,
-regressions, official example, schema/references and paths with spaces. Private datasets,
-runtime output and credentials are ignored. Remaining live-model and Linux checks are
-reported honestly in EVALUATION.md; final submission requires user approval.
+Unseeded circle accuracy is 53.66%. Sparse contacts, dual roles, family/work vocabulary
+collisions, implicit obligations and ambiguous unquoted completions remain weak. Dev
+goal/intervention error rates cannot be measured. We do not hardcode identities or
+duplicate predictions to exploit repeated answer sources. Hidden performance is unknown.
+
+## Engineering decisions and limits
+
+Inference never reads answers. Validated output is written atomically; unresolved
+schema/reference errors return nonzero. The client caches requests, bounds concurrency,
+reserves estimated cost and handles temporary in-flight-credit holds separately from
+permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 76
+tests and clean Python 3.10/3.12/3.14 CI passed, including a clean 3.12 container.
+
+A sparse synthetic 20k-message/320-chat run takes 1.19 s with a mock. A real-endpoint
+attempt took 4.02 s but all requests were rejected: successful dense-task network
+runtime remains unverified. The final relevance-only slow-pass refinement passed
+regressions but needs funded live re-evaluation. We retain Dossier-ARR-PRISM rather
+than add costly orchestration. Private data and credentials remain ignored. **Not
+ready to submit**: packaging is validated, but accuracy and clean model evidence need work.
