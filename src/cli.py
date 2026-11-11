@@ -6,7 +6,10 @@ import argparse
 import sys
 from pathlib import Path
 
+from .llm_client import LLMClient
 from .output_builder import run_pipeline
+
+INFERENCE_MODES = ("deterministic", "hybrid")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -16,6 +19,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("input_folder", help="Folder containing chats.jsonl, messages.jsonl, and seed.json")
     parser.add_argument("output_path", help="Destination path for output.json")
+    parser.add_argument(
+        "--mode", choices=INFERENCE_MODES, default="deterministic",
+        help="Graded default: verified deterministic rules; hybrid explicitly enables the configured model",
+    )
     parser.add_argument(
         "--corrections",
         default=None,
@@ -45,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
             corrections_path=args.corrections,
             schema_path=args.schema,
             telemetry_path=args.telemetry,
+            llm_client=LLMClient(base_url="", api_key="", model="") if args.mode == "deterministic" else None,
         )
     except (OSError, ValueError) as exc:
         sys.stderr.write(f"[xpert-cold-start] Failed: {exc}\n")

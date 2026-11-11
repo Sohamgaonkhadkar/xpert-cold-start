@@ -60,7 +60,7 @@ ANNOYING_NAG_RE = re.compile(
 
 # Emotionally intimate, sensitive, or uncommitted soft household musing (`leave: personal`)
 PERSONAL_SENSITIVE_RE = re.compile(
-    r"\b(sorry|apologize|upset|angry|fight|argument|miss\s+you|love\s+you|feelings|"
+    r"\b(apologize|upset|angry|fight|argument|miss\s+you|love\s+you|feelings|"
     r"therapy|counselling|private|personal|secret|anniversary\s+note|prayer|condolence|funeral|"
     r"kuch\s+sochna\s+padega|kuch\s+dekhna\s+padega)\b",
     re.IGNORECASE,
@@ -232,6 +232,10 @@ def apply_intervention_policy(
             cp_circle=cp_circle,
             origin_msg_ts=origin_msg.ts if origin_msg else index.anchor_ts,
             anchor_ts=index.anchor_ts,
+            waiting_for_me=bool(origin_msg and (
+                origin_msg.sender_id == USER_ID
+                or (chat and not chat.is_group and loop.type == "followup")
+            )),
         )
         chosen = _select_bayes_optimal_action(probs)
         max_p = max(probs.values())
@@ -354,24 +358,20 @@ def _estimate_action_posteriors(
     cp_circle: str,
     origin_msg_ts: datetime,
     anchor_ts: datetime,
+    waiting_for_me: bool = False,
 ) -> Dict[str, float]:
     """Compute hand-set action weights from structural and lexical features."""
     # Case 1: Owned by someone OTHER than ME (`loop.owner != "ME"`)
     if loop.owner != USER_ID:
-        # Staff, spouse, child, parent, sibling, friend handling their own task -> stay out!
-        if cp_circle in ("staff", "spouse", "child", "parent", "in-law", "sibling", "relative", "friend"):
+        # Family members' own plans stay theirs. Respect explicit no-nudge requests.
+        if cp_circle in ("spouse", "child", "parent", "in-law", "sibling", "relative", "friend") or ANNOYING_NAG_RE.search(combined_text):
             return {"leave": 0.94, "remind": 0.04, "assist": 0.02}
 
-        # Work colleague / vendor / client followup: only step in if overdue or stale (>48h waiting)
-        is_overdue = False
-        if loop.due_date and loop.due_date < anchor_ts.date().isoformat():
-            is_overdue = True
-        elif loop.due_date is None and (anchor_ts - origin_msg_ts) > timedelta(hours=60):
-            is_overdue = True
-
-        if is_overdue and cp_circle in ("vendor", "client", "colleague", "partner"):
-            # Assistant can draft a polite check-in nudge (with approval)
-            return {"assist": 0.62, "remind": 0.24, "leave": 0.14}
+        # Official FAQ (11 Nov): someone else is handling it -> leave; if ME is
+        # waiting and it is overdue -> remind. Age alone does not establish a due date.
+        is_overdue = bool(loop.due_date and loop.due_date < anchor_ts.date().isoformat())
+        if is_overdue and waiting_for_me and cp_circle in ("staff", "vendor", "client", "colleague", "partner"):
+            return {"remind": 0.88, "assist": 0.04, "leave": 0.08}
         return {"leave": 0.88, "remind": 0.08, "assist": 0.04}
 
     # Case 2: Owned by ME (`loop.owner == "ME"`)

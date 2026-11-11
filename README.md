@@ -8,34 +8,41 @@ retrieval, Anchor-Retrieve-Reconcile task tracking and a conservative interventi
 
 ## Run
 
+The submission profile is **deterministic**, including when the evaluator supplies
+model credentials. It reproduces the measured 28.9526/56 dev run with zero model calls.
+Python 3.10+ is sufficient for this profile; the stdlib schema validator is built in.
+
 ```bash
-python3 -m pip install -r requirements.txt
 bash run.sh <input_folder> <output_path>
 ```
+
+Install `requirements.txt` to run tests and enable the optional hybrid experiment.
+See [SUBMISSION.md](SUBMISSION.md) for the grading configuration and final handoff.
 
 The input contains `chats.jsonl`, `messages.jsonl` and optional `seed.json`.
 Input/output paths are relative to the caller, may contain spaces and may be outside
 the repository. Inference never reads `answers/`. No database, frontend, model download
 or general internet access is required. Runtime network requests go only to the configured
-model endpoint; redirects are refused. Without credentials, inference uses deterministic
-rules. The stdlib fallback validates every keyword in the official schema.
+model endpoint in explicit hybrid mode; redirects are refused. The default command
+uses deterministic rules. The stdlib fallback validates the official schema.
 
-For the grader's OpenRouter configuration:
+For explicit optional hybrid testing (not the selected grading profile):
 
 ```bash
 export LLM_BASE_URL=https://openrouter.ai/api/v1
 export LLM_API_KEY='<your key>'
 export LLM_MODEL=openai/gpt-4.1-mini
 export LLM_USAGE_LOG=/tmp/xpert-usage.jsonl
-bash run.sh data/dev /tmp/xpert-output.json --telemetry /tmp/xpert-telemetry.json
+bash run.sh data/dev /tmp/xpert-output.json --mode hybrid --telemetry /tmp/xpert-telemetry.json
 python3 check.py data/dev /tmp/xpert-output.json
 ```
 
 `openai/gpt-4.1-mini` has been live-tested. See [EVALUATION.md](EVALUATION.md) for
 actual quality, costs, provider failures and model comparison. The latest offline score
 exceeds the supplied 27.65 benchmark; hidden ranking and funded model quality remain unknown.
-The evaluator must receive the exact model ID actually selected
-from those measurements.
+The compatibility model ID is `openai/gpt-4.1-mini`, previously tested live and present
+in OpenRouter's catalogue on 12 November. The graded profile deliberately makes no
+model calls; naming the model does not enable hybrid mode.
 
 Optional limits: `LLM_MAX_WALL_SEC` (default 1380), `LLM_MAX_COST_USD` (default 2.50),
 `LLM_MAX_CONCURRENCY` (default 6), `LLM_INPUT_COST_PER_1M` and `LLM_OUTPUT_COST_PER_1M`.
@@ -90,6 +97,7 @@ clearly. A DONE/DROPPED correction requires a later evidence message.
 - [AUDIT.md](AUDIT.md): baseline architecture, specific risks and test boundaries.
 - [EVALUATION.md](EVALUATION.md): measured official results and readiness verdict.
 - [WRITEUP.md](WRITEUP.md): submission write-up; [rendered PDF](metrics/writeup.pdf), at most two A4 pages.
+- [SUBMISSION.md](SUBMISSION.md): submission fields, reproduction and declared limits.
 - [ARCHITECTURE.md](ARCHITECTURE.md): historical design rationale, not performance evidence.
 - `ai-logs/`: original Arena summary, genuine mission prompt and exported visible Codex conversation.
   No original Arena transcript was available; the summary is not presented as one.

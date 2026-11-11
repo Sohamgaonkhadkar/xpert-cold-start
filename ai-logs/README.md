@@ -6,6 +6,8 @@
   reasoning are excluded; tool output included private challenge conversations.
 * `session-summary.md`: the genuine pre-existing Arena engineering summary. Original
   Arena conversation exports were unavailable. This is not represented as a transcript.
+* `codex-nov11-12-visible-excerpts.md`: selected genuine visible turns from the final
+  dev tuning and submission preparation; explicitly not a complete export.
 
 `AUDIT.md`, `EVALUATION.md` and commit diffs preserve the review decisions and measured
 outcomes. No missing historical conversation has been fabricated. Credentials, model

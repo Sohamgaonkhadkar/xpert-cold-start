@@ -5,8 +5,8 @@
 We prioritize relationship context, task discovery, conservative closure and restraint
 in interventions. A false completion hides work; an intrusive reminder can make an
 assistant unwelcome. We preserved the existing Python architecture and added targeted
-fixes, rather than rebuilding it. Selective inference avoids paying a model to read
-routine chatter. The deliverable is a batch JSON program, with no frontend or database.
+fixes, rather than rebuilding it. The grading profile is deterministic; optional model
+inference requires an explicit flag. The deliverable is a batch JSON program.
 
 ## Architecture
 
@@ -38,12 +38,14 @@ interventions are unlabelled there: its denominator is 56, whereas the example i
 |---|---:|---:|---:|
 | Original Arena, deterministic | 18.68 | 0 | 7.00 |
 | Hardened, deterministic | 19.80 | 0 | 8.33 |
-| 12 November corrections, deterministic | 28.95 | 0 | 4.93 |
+| Submission profile, deterministic | 28.95 | 0 | 6.25 |
 | Original Arena, GPT-4.1 mini live | 19.48 | 0.01751 | 92.07 |
 | Hardened GPT-4.1 mini, serial /credit-limited | 19.56 | 0.00942 | 789.08 |
 | Hardened GPT-4o mini, serial /credit-limited | 19.80 | 0.00150 | 229.88 |
 
 Exact tested OpenRouter IDs: **openai/gpt-4.1-mini** and **openai/gpt-4o-mini**.
+The model field for submission is **openai/gpt-4.1-mini**; the default command makes
+zero model calls even with credentials. Optional testing uses **--mode hybrid**.
 The original live run returned 128,022 input /17,264 output tokens in 39 responses,
 provider cost $0.0788312. Hardened serial runs returned 98,795 /13,075 tokens in 34
 responses ($0.042390), and 38,565 /1,602 in 43 responses ($0.00674595), respectively.
@@ -53,8 +55,7 @@ not price-table estimates; failed requests may omit usage.
 
 Both hardened models suffered HTTP 402s and fallbacks, then permanent insufficient
 credits. Shared-account overlap confounds latency; these runs cannot rank models or
-select a grading model. The example scores 74/74 offline and in tested live mode.
-Historical synthetic scores use a test-aware mock and an incompatible rubric.
+select a hybrid grading model. The example scores 74/74 offline and in tested live mode.
 
 ## Where it fails
 
@@ -75,12 +76,12 @@ duplicate predictions to exploit repeated answer sources. Hidden performance is 
 Inference never reads answers. Validated output is written atomically; unresolved
 schema/reference errors return nonzero. The client caches requests, bounds concurrency,
 reserves estimated cost and handles temporary in-flight-credit holds separately from
-permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 114
+permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 125
 local tests pass; Python 3.10/3.12/3.14 and clean-container CI remain configured.
 
-A sparse synthetic 20k-message/320-chat run takes 1.19 s with a mock. A real-endpoint
-attempt took 4.02 s but all requests were rejected: successful dense-task network
-runtime remains unverified. The final relevance-only slow-pass refinement passed
-regressions but needs funded live re-evaluation. We retain Dossier-ARR-PRISM rather
-than add costly orchestration. Private data and credentials remain ignored. **Not
-ready to submit**: packaging is validated, but accuracy and clean model evidence need work.
+A dense synthetic 20k-message/320-chat run takes 63.88 s with 5,000 task candidates,
+valid output and zero model calls. This tests local runtime, not hidden accuracy.
+The optional hybrid path needs funded quality re-evaluation; it is not the grading
+configuration. We retain Dossier-ARR-PRISM rather than costly orchestration. Private
+data and credentials remain ignored. **Ready for deterministic evaluation**, with
+the measured errors above disclosed; no hidden-set accuracy or rank is claimed.

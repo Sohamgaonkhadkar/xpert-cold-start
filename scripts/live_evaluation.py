@@ -89,8 +89,11 @@ def usage_log(self, model, data, seconds):
                 "completion_tokens":usage.get("completion_tokens"),"cost":usage.get("cost"),
                 "seconds":seconds}) + "\\n")
 LLMClient._append_usage_log = usage_log
-from src.cli import main
-raise SystemExit(main(sys.argv[1:]))
+import src.cli as cli
+cli_args = sys.argv[1:]
+if hasattr(cli, "INFERENCE_MODES"):
+    cli_args.extend(["--mode", "hybrid"])
+raise SystemExit(cli.main(cli_args))
 '''
     start = time.perf_counter()
     proc = subprocess.run([sys.executable, "-c", code, str(data), str(output / "prediction.json"),

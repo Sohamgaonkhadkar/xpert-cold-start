@@ -1,5 +1,32 @@
 # Independent evaluation
 
+## Submission configuration - 12 November
+
+**Ready for deterministic evaluation**, with the limitations below disclosed.
+The required two-argument command now explicitly selects deterministic inference,
+even with evaluator credentials present. Optional model inference requires
+`--mode hybrid`; the live-evaluation helper selects it explicitly, including when
+comparing historical revisions. This prevents the verified offline score from silently
+becoming a credit-dependent, unverified hybrid run during grading.
+
+The final configured dev score remains **28.952575934283253/56**. All **125 local
+tests pass**. The correction exercise passes. The current official checker, schema
+and four worked-example files match after newline normalization. A dense synthetic
+20,000-message/320-chat fixture produces 5,000 validated completed tasks in **63.88 s**,
+with zero model calls. This is a designed runtime test, not hidden-set accuracy.
+The history scan checked 130 unique blobs with zero credential-pattern/private-path
+findings; a pattern scan cannot prove the absence of every possible secret.
+
+The 11 November official FAQ also clarified intervention decisions: no undated task
+becomes overdue merely by age; someone else's overdue task warrants a reminder only
+when ME is waiting. This is now enforced and covered by new synthetic regressions.
+The dev set cannot measure the change because intervention labels are absent.
+
+The current submission handoff is [SUBMISSION.md](SUBMISSION.md); aggregate final
+verification is in [metrics/submission_verification.json](metrics/submission_verification.json).
+Earlier not-ready verdicts below apply to the earlier live/hybrid candidates. No
+challenge submission or final-branch merge has been performed.
+
 ## 12 November update
 
 Best verified deterministic dev score: **28.952575934283253/56**, up from 28.2477.
