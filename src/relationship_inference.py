@@ -1013,7 +1013,8 @@ def infer_people_circles(
             home_link = any(set(tokenize(name, drop_stopwords=False)) & {"home", "ghar", "kitchen", "carpool", "household"}
                             for name in dossiers[pid].group_names)
             explicit_worker = set(tokenize(predictions[pid].name)) & (STAFF_ROLE_WORDS | VENDOR_ROLE_WORDS)
-            if count >= 80 and count >= 2.5 * max(1, runner_up) and home_link and not explicit_worker and predictions[pid].source != "seed":
+            eligible_family_ambiguity = predictions[pid].circle in ("friend", "relative", "sibling", "spouse")
+            if count >= 80 and count >= 2.5 * max(1, runner_up) and home_link and not explicit_worker and eligible_family_ambiguity and predictions[pid].source != "seed":
                 predictions[pid].circle = "spouse"
                 predictions[pid].confidence = 0.99
 

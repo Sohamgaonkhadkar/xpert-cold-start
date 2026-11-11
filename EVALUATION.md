@@ -1,5 +1,14 @@
 # Independent evaluation
 
+## 12 November update
+
+Best verified deterministic dev score: **28.952575934283253/56**, up from 28.2477.
+Matched loops increase from 48 to 50/74; matched missed completions decrease from
+20 to 19, with zero matched false DONE. The final local suite passes all 114 tests.
+The measured run takes 4.9289 seconds, with zero model calls, tokens or API cost.
+See [the fixes and remaining limitations](metrics/nov12_evaluation.md) and
+[aggregate measurements](metrics/nov12_evaluations.json). No submission has been made.
+
 ## 11 November update
 
 Best verified deterministic dev score: **28.247735639442958/56**, versus the starting

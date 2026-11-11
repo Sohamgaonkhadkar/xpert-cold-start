@@ -316,6 +316,7 @@ class LoopCandidate:
     involved_people: Set[str] = field(default_factory=set)
     related_msg_ids: List[str] = field(default_factory=list)
     confidence: float = 0.65
+    is_task_list: bool = False
 
 
 def _clean_loop_title(body: str, quoted_body: Optional[str] = None) -> str:
@@ -403,6 +404,22 @@ def extract_open_loop_candidates(
         if re.match(r"^(?:reverting|sending|sharing)\s+(?:tomorrow|tonight|by\b|on\s+(?:mon|tue|wed|thu|fri))", match_body, re.IGNORECASE):
             has_self_commit = True
         has_question = bool(QUESTION_CUE_RE.search(match_body))
+        # A proposed meeting remains a decision even when an informal Hinglish
+        # message omits its question mark.
+        if re.search(r"\b(?:meet|meeting|call)\s+(?:pe|par)\s+karte\s+(?:hai|hain)\b", match_body, re.IGNORECASE):
+            has_question = True
+        # A task-list heading plus multiple numbered actions is a bundled request.
+        # Names, shopping inventories and event attendance lists alone are not tasks.
+        list_actions = re.findall(
+            r"(?m)^\s*\d+[.)]\s*[\u2060\u200b*]*(?:regular\s+)?(?:clean(?:ing)?|vacuum|wash|repair|replace|install|submit|send|pay|book|check)\b",
+            match_body, re.IGNORECASE,
+        )
+        is_task_list = len(list_actions) >= 2 and bool(re.search(r"\b(?:work|tasks?|to[ -]?do)\b", match_body.splitlines()[0], re.IGNORECASE))
+        if is_task_list:
+            if re.match(r"^(?:my|our)\s+(?:work|tasks?|to[ -]?do)\b", match_body, re.IGNORECASE):
+                has_self_commit = True
+            else:
+                has_directive = True
         has_indirect_ob = bool(INDIRECT_OBLIGATION_RE.search(match_body)) and bool(
             TIME_HORIZON_ANCHOR_RE.search(match_body)
         )
@@ -740,6 +757,7 @@ def extract_open_loop_candidates(
                 involved_people=involved,
                 related_msg_ids=[msg.id],
                 confidence=conf,
+                is_task_list=is_task_list,
             )
         )
 
@@ -829,6 +847,10 @@ def _deduplicate_candidates(
     for cand in candidates:
         merged_into: Optional[LoopCandidate] = None
         for prev in kept:
+            # A bundle of actions is not a restatement of one earlier task merely
+            # because both mention a room, supplier or other rare entity.
+            if cand.is_task_list != prev.is_task_list:
+                continue
             # Never merge candidates separated by > 10 days
             if abs((cand.origin_msg.ts - prev.origin_msg.ts).total_seconds()) > 10 * 86400:
                 continue

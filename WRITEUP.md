@@ -38,7 +38,7 @@ interventions are unlabelled there: its denominator is 56, whereas the example i
 |---|---:|---:|---:|
 | Original Arena, deterministic | 18.68 | 0 | 7.00 |
 | Hardened, deterministic | 19.80 | 0 | 8.33 |
-| 11 November corrections, deterministic | 28.25 | 0 | 6.76 |
+| 12 November corrections, deterministic | 28.95 | 0 | 4.93 |
 | Original Arena, GPT-4.1 mini live | 19.48 | 0.01751 | 92.07 |
 | Hardened GPT-4.1 mini, serial /credit-limited | 19.56 | 0.00942 | 789.08 |
 | Hardened GPT-4o mini, serial /credit-limited | 19.80 | 0.00150 | 229.88 |
@@ -58,9 +58,9 @@ Historical synthetic scores use a test-aware mock and an incompatible rubric.
 
 ## Where it fails
 
-Latest deterministic dev loops have 17.39% precision, 64.86% recall and 27.43% F1:
-48 matches among 276 predictions against 74 labels. There are zero false DONE among
-matched loops, 20 missed completions among matched loops (42 including undiscovered
+Latest deterministic dev loops have 17.99% precision, 67.57% recall and 28.41% F1:
+50 matches among 278 predictions against 74 labels. There are zero false DONE among
+matched loops, 19 missed completions among matched loops (41 including undiscovered
 ones), and six owner errors. The starting hardened result matched 32/74 with 408
 predictions. The official README warns that its loop labels are incomplete; unmatched
 predictions are not all necessarily invalid tasks.
@@ -75,7 +75,7 @@ duplicate predictions to exploit repeated answer sources. Hidden performance is 
 Inference never reads answers. Validated output is written atomically; unresolved
 schema/reference errors return nonzero. The client caches requests, bounds concurrency,
 reserves estimated cost and handles temporary in-flight-credit holds separately from
-permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 97
+permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 114
 local tests pass; Python 3.10/3.12/3.14 and clean-container CI remain configured.
 
 A sparse synthetic 20k-message/320-chat run takes 1.19 s with a mock. A real-endpoint

@@ -1,8 +1,8 @@
 # Xpert Cold Start: Dossier-ARR-PRISM
 
 Python batch inference for the [Xpert Winter Internship Cold Start Challenge](https://goals.xpert.chat/w/intern).
-Latest offline official dev result (11 November): **28.2477/56**, up from 19.7995.
-See [tonight's ablations and limitations](metrics/nov11_evaluation.md).
+Latest offline official dev result (12 November): **28.9526/56**, up from 19.7995.
+See [the latest fixes and limitations](metrics/nov12_evaluation.md).
 Preserves the Arena implementation: contact dossiers, organisation/chat routing, multilingual
 retrieval, Anchor-Retrieve-Reconcile task tracking and a conservative intervention policy.
 

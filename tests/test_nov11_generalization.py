@@ -104,3 +104,87 @@ def test_negated_need_is_not_a_task(tmp_path):
     root = dataset(tmp_path / "d", dm(), [("c", "ME", "We do not need to book an inspection")])
     _, out = run_pipeline(root)
     assert out["open_loops"] == []
+
+
+def test_task_bundle_keeps_its_own_source(tmp_path):
+    root = dataset(tmp_path / "d", dm(), [
+        ("c", "p", "Need to ask the marble supplier about tile corners"),
+        ("c", "p", "House tasks:\n1. Clean the marble tiles\n2. Check tile corners\n3. Wash curtains"),
+    ])
+    _, out = run_pipeline(root)
+    assert {l["source_msg"] for l in out["open_loops"]} == {"m0", "m1"}
+
+
+@pytest.mark.parametrize("reply,status", [
+    ("Completed the window cleaning", "open"),
+    ("All tasks completed", "done"),
+    ("All windows completed", "open"),
+    ("Every task completed", "done"),
+    ("All tasks are not completed yet", "open"),
+    ("All tasks will be completed tomorrow", "open"),
+    ("Window cleaning cancelled", "open"),
+    ("Cancel the entire task list", "dropped"),
+])
+def test_one_completed_or_cancelled_item_does_not_resolve_bundle(tmp_path, reply, status):
+    root = dataset(tmp_path / "d", dm(), [
+        ("c", "p", "House tasks:\n1. Clean windows\n2. Wash curtains"),
+        ("c", "ME", reply),
+    ])
+    _, out = run_pipeline(root)
+    assert next(l for l in out["open_loops"] if l["source_msg"] == "m0")["status"] == status
+
+
+@pytest.mark.parametrize("reply,status", [
+    ("It is already in your inbox.", "done"),
+    ("The report is in your email", "done"),
+    ("I will put it in your email tomorrow", "open"),
+    ("It is not in your inbox", "open"),
+])
+def test_email_delivery_confirmation_requires_past_delivery(tmp_path, reply, status):
+    root = dataset(tmp_path / "d", dm(), [("c", "p", "Send me the report"), ("c", "ME", reply)])
+    _, out = run_pipeline(root)
+    assert next(l for l in out["open_loops"] if l["source_msg"] == "m0")["status"] == status
+
+
+def test_hinglish_meeting_proposal_without_question_mark(tmp_path):
+    root = dataset(tmp_path / "d", dm(), [("c", "p", "Call par karte hain Friday ko sahi rahega")])
+    _, out = run_pipeline(root)
+    assert any(l["source_msg"] == "m0" and l["owner"] == "ME" for l in out["open_loops"])
+
+
+def test_busiest_household_parent_is_not_promoted_to_spouse(tmp_path):
+    chats = dm() + [dict(chat_id="g", name="Household", is_group=True, participants=["ME", "p", "q"])]
+    chats[0]["name"] = "Papa"
+    turns = [("c", "p", "Okay beta, God bless you") for _ in range(85)]
+    turns.append(("g", "q", "Hello"))
+    root = dataset(tmp_path / "d", chats, turns)
+    _, out = run_pipeline(root)
+    assert next(p for p in out["people"] if p["id"] == "p")["circle"] == "parent"
+
+
+def test_numbered_attendance_list_is_not_a_task_bundle(tmp_path):
+    root = dataset(tmp_path / "d", dm(), [("c", "p", "Participants:\n1. Morgan\n2. Riley\n3. Avery")])
+    _, out = run_pipeline(root)
+    assert out["open_loops"] == []
+
+
+def test_model_cannot_close_bundle_from_one_item(tmp_path):
+    from src.llm_client import LLMClient
+    from src.loop_extraction import LoopCandidate
+    from src.models import EvidenceLedger
+    from src.temporal_resolver import reconcile_open_loops
+
+    root = dataset(tmp_path / "d", dm(), [
+        ("c", "p", "House tasks:\n1. Clean windows\n2. Wash curtains"),
+        ("c", "ME", "Completed the window cleaning"),
+    ])
+    index = ConversationIndex(load_dataset(root))
+    candidate = LoopCandidate(index.messages_by_id["m0"], "commitment", "ME", "House tasks", None,
+                              {"windows", "curtains", "clean", "wash"}, set(), is_task_list=True)
+    calls = []
+    def optimistic_model(stage, system, prompt):
+        calls.append(stage)
+        return {"status": "done", "closure_message_id": "m1", "owner": "ME", "confidence": 0.99}
+    results = reconcile_open_loops([candidate], index, {}, LLMClient(mock_responder=optimistic_model), EvidenceLedger())
+    assert calls == ["temporal_slow_verify"]
+    assert results[0].status == "open"
