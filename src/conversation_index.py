@@ -233,7 +233,14 @@ class ConversationIndex:
                     senders_by_cand[cand].add(m.sender_id)
 
         for cand, s_set in senders_by_cand.items():
-            if len(s_set) >= 2:
+            # Group-only vocatives need independent witnesses. A DM/reply is
+            # stronger addressing evidence, but sentence words are never names.
+            witnesses = {s for s in s_set if not s.startswith("dm:")}
+            if (len(witnesses) >= 2 or any(s.startswith("dm:") for s in s_set)) and cand not in STOPWORDS and cand not in {
+                "you", "they", "also", "oops", "wow", "surely", "congratulations",
+                "newspaper", "hahahahah", "this", "that", "these", "those", "there",
+                "here", "thanks", "thank", "please", "yes", "okay", "sorry",
+            }:
                 self.me_aliases.add(cand)
 
         # Augment family surnames from seeded core family (spouse/parent/sibling/child) & >=3 non-role 1:1 DM contacts

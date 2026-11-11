@@ -38,6 +38,7 @@ interventions are unlabelled there: its denominator is 56, whereas the example i
 |---|---:|---:|---:|
 | Original Arena, deterministic | 18.68 | 0 | 7.00 |
 | Hardened, deterministic | 19.80 | 0 | 8.33 |
+| 11 November corrections, deterministic | 28.25 | 0 | 6.76 |
 | Original Arena, GPT-4.1 mini live | 19.48 | 0.01751 | 92.07 |
 | Hardened GPT-4.1 mini, serial /credit-limited | 19.56 | 0.00942 | 789.08 |
 | Hardened GPT-4o mini, serial /credit-limited | 19.80 | 0.00150 | 229.88 |
@@ -50,22 +51,21 @@ Relationship and loop-discovery prompts dominated original token use; detailed s
 counts are in EVALUATION.md and the aggregate JSON. These are provider-reported costs,
 not price-table estimates; failed requests may omit usage.
 
-Both hardened model runs suffered many HTTP 402s and deterministic fallbacks, followed
-by permanent insufficient account credits. They overlapped briefly on a shared account;
-latency is confounded. We cannot rank models or select a grading model from these runs.
-The official example scores 74/74 in offline and tested live mode. Historical custom
-synthetic scores used a test-aware mock and a different rubric; they are not dev scores.
+Both hardened models suffered HTTP 402s and fallbacks, then permanent insufficient
+credits. Shared-account overlap confounds latency; these runs cannot rank models or
+select a grading model. The example scores 74/74 offline and in tested live mode.
+Historical synthetic scores use a test-aware mock and an incompatible rubric.
 
 ## Where it fails
 
-Hardened deterministic dev loops have 7.84% precision, 43.24% recall and 13.28% F1:
-32 matches among 408 predictions against 74 labels. There are zero false DONE among
-matched loops, 17 missed completions among matched loops (47 including undiscovered
-ones), and five owner errors. Original deterministic recall was 37.84%, with one false
-DONE. The official README warns that its loop labels are incomplete; unmatched
+Latest deterministic dev loops have 17.39% precision, 64.86% recall and 27.43% F1:
+48 matches among 276 predictions against 74 labels. There are zero false DONE among
+matched loops, 20 missed completions among matched loops (42 including undiscovered
+ones), and six owner errors. The starting hardened result matched 32/74 with 408
+predictions. The official README warns that its loop labels are incomplete; unmatched
 predictions are not all necessarily invalid tasks.
 
-Unseeded circle accuracy is 53.66%. Sparse contacts, dual roles, family/work vocabulary
+Unseeded circle accuracy is 75.61%. Sparse contacts, dual roles, family/work vocabulary
 collisions, implicit obligations and ambiguous unquoted completions remain weak. Dev
 goal/intervention error rates cannot be measured. We do not hardcode identities or
 duplicate predictions to exploit repeated answer sources. Hidden performance is unknown.
@@ -75,8 +75,8 @@ duplicate predictions to exploit repeated answer sources. Hidden performance is 
 Inference never reads answers. Validated output is written atomically; unresolved
 schema/reference errors return nonzero. The client caches requests, bounds concurrency,
 reserves estimated cost and handles temporary in-flight-credit holds separately from
-permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 76
-tests and clean Python 3.10/3.12/3.14 CI passed, including a clean 3.12 container.
+permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 97
+local tests pass; Python 3.10/3.12/3.14 and clean-container CI remain configured.
 
 A sparse synthetic 20k-message/320-chat run takes 1.19 s with a mock. A real-endpoint
 attempt took 4.02 s but all requests were rejected: successful dense-task network

@@ -1,6 +1,8 @@
 # Xpert Cold Start: Dossier-ARR-PRISM
 
 Python batch inference for the [Xpert Winter Internship Cold Start Challenge](https://goals.xpert.chat/w/intern).
+Latest offline official dev result (11 November): **28.2477/56**, up from 19.7995.
+See [tonight's ablations and limitations](metrics/nov11_evaluation.md).
 Preserves the Arena implementation: contact dossiers, organisation/chat routing, multilingual
 retrieval, Anchor-Retrieve-Reconcile task tracking and a conservative intervention policy.
 
@@ -30,8 +32,9 @@ python3 check.py data/dev /tmp/xpert-output.json
 ```
 
 `openai/gpt-4.1-mini` has been live-tested. See [EVALUATION.md](EVALUATION.md) for
-actual quality, costs, provider failures and model comparison; the project is not yet
-claimed competitive. The evaluator must receive the exact model ID actually selected
+actual quality, costs, provider failures and model comparison. The latest offline score
+exceeds the supplied 27.65 benchmark; hidden ranking and funded model quality remain unknown.
+The evaluator must receive the exact model ID actually selected
 from those measurements.
 
 Optional limits: `LLM_MAX_WALL_SEC` (default 1380), `LLM_MAX_COST_USD` (default 2.50),

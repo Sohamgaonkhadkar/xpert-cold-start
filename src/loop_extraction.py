@@ -58,7 +58,7 @@ SELF_COMMIT_RE = re.compile(
 
 # Request / directive patterns (speaker asks addressee to act)
 DIRECTIVE_REQUEST_RE = re.compile(
-    r"\b(please\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can\s+(?:you|u)|could\s+(?:you|u)|would\s+(?:you|u)|need (?:you to|your help to)|"
+    r"\b(please\s+[a-z]+|pl\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can\s+(?:you|u)|could\s+(?:you|u)|would\s+(?:you|u)|need (?:you to|your help to)|"
     r"don't forget to|dont forget to|remember to|make sure to|kindly\s+[a-z]+|"
     r"let me know|lmk|batao|batana|bata dena|tell me|update me|keep me posted|inform me|"
     r"bhej\s+dena|bhej\s+do|kar\s+dena|kar\s+do|de\s+dena|le\s+aana|chod\s+dena|chhor\s+dena|"
@@ -90,7 +90,7 @@ DEADLINE_CUE_RE = re.compile(
 
 # Decision / open question patterns
 QUESTION_CUE_RE = re.compile(
-    r"(\?\s*$|\b(?:should we|shall we|which one|what should|do you want|can we confirm|any\s+thoughts\s+on|"
+    r"(\?\s*$|\b(?:should (?:we|i)|shall we|which one|what should|do you want|can we|any\s+thoughts\s+on|"
     r"approve|konsa|kaunsa|kab\s+tak|kab\s+karein|kya\s+karein|kobe\s+|kon\s+ta)\b)",
     re.IGNORECASE,
 )
@@ -389,17 +389,39 @@ def extract_open_loop_candidates(
 
         has_self_commit = bool(SELF_COMMIT_RE.search(match_body))
         has_directive = bool(DIRECTIVE_REQUEST_RE.search(match_body))
-        # Unprefixed imperatives from ME are common in personal exports. Keep
+        # Unprefixed imperatives are common in personal exports. Keep
         # this anchored to action verbs rather than matching nouns such as 'fan'.
-        if msg.sender_id == USER_ID and re.match(
-            r"^(?:text|order|buy|send|share|book|pay|bring|call)\s+(?:me\s+|him\b|her\b|the\s+|a\s+|an\s+|\d)",
+        if re.match(
+            r"^(?:text|order|buy|send|share|book|pay|bring|call)\s+(?:me\s+|him\b|her\b|your\s+|the\s+|a\s+|an\s+|\d)",
             match_body, re.IGNORECASE,
         ):
             has_directive = True
+        # Informal messages often omit the auxiliary in a concrete proposal or
+        # promise. Require an action, rather than turning every 'let's' into work.
+        if re.search(r"\blet['’]?s\s+(?:send|share|fix|schedule|book|arrange|meet|call)\b", match_body, re.IGNORECASE):
+            has_self_commit = True
+        if re.match(r"^(?:reverting|sending|sharing)\s+(?:tomorrow|tonight|by\b|on\s+(?:mon|tue|wed|thu|fri))", match_body, re.IGNORECASE):
+            has_self_commit = True
         has_question = bool(QUESTION_CUE_RE.search(match_body))
         has_indirect_ob = bool(INDIRECT_OBLIGATION_RE.search(match_body)) and bool(
             TIME_HORIZON_ANCHOR_RE.search(match_body)
         )
+        if re.search(r"\b(?:i |we )?need\s+to\s+(?:ask|discuss|find|hire|book|arrange|submit|renew|pay)\b", match_body, re.IGNORECASE) and not re.search(
+            r"\b(?:no|not|don't|dont|do not|doesn't|does not)\s+need\b", match_body, re.IGNORECASE
+        ):
+            has_indirect_ob = True
+        if re.search(r"\byou can go ahead and (?:order|book|buy|send|submit|pay)\b", match_body, re.IGNORECASE):
+            has_directive = True
+        if re.search(r"\bwe need (?:the |your |a )?(?:[a-z]+\s+){0,3}(?:copy|document|approval|signature|invoice|report)\s+to\s+(?:raise|submit|complete|process|finalize|finalise)\b", match_body, re.IGNORECASE):
+            has_directive = True
+        if re.search(r"\bi need\s+(?:a |an )?(?:good |new )?(?:teacher|tutor|driver|plumber|electrician|nanny)\b", match_body, re.IGNORECASE):
+            has_indirect_ob = True
+        if re.match(r"^(?:invite|invitation|payment|booking|reservation|appointment)\s+to be\s+(?:made|sent|booked|paid)\b", match_body, re.IGNORECASE):
+            has_indirect_ob = True
+        if (not chat or not chat.is_group) and re.search(
+            r"\b(?:measurements|dimensions|documents|signature|approval)\s+(?:are )?required\s+for\b", match_body, re.IGNORECASE
+        ):
+            has_directive = True
         sender_circle = people[msg.sender_id].circle if msg.sender_id in people else "friend"
         has_implicit_household = (
             msg.sender_id != USER_ID
@@ -557,6 +579,15 @@ def extract_open_loop_candidates(
                     conf = 0.68
             elif has_self_commit and not has_directive:
                 # P promises to send/do something -> followup owned by P!
+                if chat and chat.is_group and len(participants) > 8 and not me_explicitly_named:
+                    prior_me_request = bool(et and any(
+                        pm.sender_id == USER_ID
+                        and (msg.ts - pm.ts) <= timedelta(minutes=30)
+                        and (DIRECTIVE_REQUEST_RE.search(pm.body) or QUESTION_CUE_RE.search(pm.body))
+                        for pm in index.by_chat.get(msg.chat_id, [])[max(0, et.chat_index - 3):et.chat_index]
+                    ))
+                    if not prior_me_request:
+                        continue
                 loop_type = "followup"
                 owner = sender_pid
                 conf = 0.83
@@ -584,6 +615,16 @@ def extract_open_loop_candidates(
                         if ACCEPTANCE_REPLY_RE.search(rm.body):
                             claimer = rm.sender_id
                             break
+                    household_context = len(participants) <= 6 and sender_circle in ("spouse", "parent", "staff")
+                    local_me_acceptance = bool(et and any(
+                        rm.sender_id == USER_ID and ACCEPTANCE_REPLY_RE.search(rm.body)
+                        and (rm.ts - msg.ts) <= timedelta(minutes=30)
+                        for rm in index.by_chat.get(msg.chat_id, [])[et.chat_index + 1:et.chat_index + 3]
+                    ))
+                    if not claimer and not household_context and not local_me_acceptance:
+                        # Membership alone does not make ME the addressee of an
+                        # operational/broadcast request in somebody else's thread.
+                        continue
                     owner = claimer or USER_ID
                     loop_type = "commitment" if owner == USER_ID else "followup"
                     conf = 0.70

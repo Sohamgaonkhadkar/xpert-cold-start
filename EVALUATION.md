@@ -1,6 +1,18 @@
-# Independent evaluation - 7 November 2026
+# Independent evaluation
 
-**NOT READY TO SUBMIT.** Genuine development performance remains weak. Real-model runs exposed temporary in-flight limits followed by permanent insufficient
+## 11 November update
+
+Best verified deterministic dev score: **28.247735639442958/56**, versus the starting
+19.799457926752737 and supplied competitor benchmark 27.65. The full local suite passes
+(97 tests). No model calls were made tonight: zero tokens and zero API cost. The final
+measured pipeline run took 6.7569 seconds. See [the ablation report](metrics/nov11_evaluation.md)
+and [machine-readable results](metrics/nov11_evaluations.json). These are development
+measurements after iterative tuning, not held-out accuracy or a global leaderboard rank.
+No submission has been made. The historical live-model findings below still apply.
+
+## Historical evaluation - 7 November 2026
+
+**Review only; not submitted.** Real-model runs exposed temporary in-flight limits followed by permanent insufficient
 account credits; this branch is for review, not submission.
 No hidden-set score or ranking is claimed.
 

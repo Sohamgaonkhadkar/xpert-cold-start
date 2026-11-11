@@ -489,6 +489,19 @@ def _evaluate_trail_deterministic(
 
         is_authorized_actor = m.sender_id in {eff_owner, cand.origin_msg.sender_id, USER_ID}
 
+        # Typed delivery: a phone number or map pin can fulfil the corresponding
+        # request without the word 'sent'. Require the owner, same DM, prompt
+        # response and exact deliverable type; unrelated links remain evidence only.
+        if (same_chat_close and m_is_dm and m.sender_id == eff_owner and not quotes_unrelated
+                and (m.ts - cand.origin_msg.ts) <= timedelta(hours=2)
+                and not re.search(r"\b(?:not|wrong|incorrect|don't|do not|will|later|tomorrow)\b", body, re.IGNORECASE)):
+            phone_delivery = bool(origin_all_toks & {"number", "contact", "phone"}) and bool(re.search(r"(?<!\d)\d{10,13}(?!\d)", body))
+            address_delivery = bool(origin_all_toks & {"address", "location"}) and bool(re.search(r"https?://(?:maps\.app\.goo\.gl/|(?:www\.)?google\.[^/]+/maps)", body))
+            purchase_delivery = bool(origin_all_toks & {"buy", "purchase", "order"}) and bool(re.match(r"^(?:i (?:have |just )?)?(?:bought|purchased|ordered)\b", body, re.IGNORECASE)) and token_overlap >= 1
+            if phone_delivery or address_delivery or purchase_delivery:
+                status, closure_id, confidence = "done", m.id, 0.89
+                continue
+
         # 1. Check for failed/reopened completion AFTER a prior tentative done!
         if status == "done" and FAILURE_REOPEN_RE.search(body) and (is_authorized_actor or is_direct_reply):
             status = "open"
