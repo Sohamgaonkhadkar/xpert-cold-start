@@ -29,7 +29,7 @@ tools, never by inference.
 and speaker-attributed turns into contact dossiers. Seeds take precedence. Rules
 distinguish internal work groups from customer projects and constrain family priors
 so household conversation volume cannot override an inferred parent or child.
-Hybrid mode can refine uncertain dossiers.
+ME’s direct full-name family introductions can anchor a relationship across chats; ambiguous or conflicting introductions are ignored. Hybrid mode can refine uncertain dossiers.
 
 `organisation_inference.py` discovers associated companies and places, links people
 and assigns every chat to one person or organisation. Companies and their office
@@ -54,7 +54,7 @@ at ten. Dev has no goal labels, so these gates are not independently measured ac
    content; a shared first name is insufficient.
 3. **Reconcile:** evidence updates ownership, due dates and `open`/`done`/`dropped`
    status. Completion, matching deliverables, cancellation and later failure evidence
-   can change state. Hybrid mode verifies selected uncertain trails.
+   can change state. A substantive, on-topic response can fulfil a promise to reply without asserting that an underlying repair is complete. Hybrid mode verifies selected uncertain trails.
 
 Closure safeguards apply to both rules and model output. Bare acknowledgements,
 future intent, partial progress and elapsed dates do not establish execution.

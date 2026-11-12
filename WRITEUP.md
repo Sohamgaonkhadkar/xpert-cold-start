@@ -38,7 +38,7 @@ interventions are unlabelled there: its denominator is 56, whereas the example i
 |---|---:|---:|---:|
 | Original Arena, deterministic | 18.68 | 0 | 7.00 |
 | Hardened, deterministic | 19.80 | 0 | 8.33 |
-| Submission profile, deterministic | 28.95 | 0 | 6.25 |
+| Offline evidence refinements | 29.67 | 0 | 4.31 |
 | Original Arena, GPT-4.1 mini live | 19.48 | 0.01751 | 92.07 |
 | Hardened GPT-4.1 mini, serial /credit-limited | 19.56 | 0.00942 | 789.08 |
 | Hardened GPT-4o mini, serial /credit-limited | 19.80 | 0.00150 | 229.88 |
@@ -59,14 +59,14 @@ select a hybrid grading model. The example scores 74/74 offline and in tested li
 
 ## Where it fails
 
-Latest deterministic dev loops have 17.99% precision, 67.57% recall and 28.41% F1:
-50 matches among 278 predictions against 74 labels. There are zero false DONE among
-matched loops, 19 missed completions among matched loops (41 including undiscovered
+Latest deterministic dev loops have 18.28% precision, 68.92% recall and 28.90% F1:
+51 matches among 279 predictions against 74 labels. There are zero false DONE among
+matched loops, 19 missed completions among matched loops (40 including undiscovered
 ones), and six owner errors. The starting hardened result matched 32/74 with 408
 predictions. The official README warns that its loop labels are incomplete; unmatched
 predictions are not all necessarily invalid tasks.
 
-Unseeded circle accuracy is 75.61%. Sparse contacts, dual roles, family/work vocabulary
+Unseeded circle accuracy is 78.05%. Sparse contacts, dual roles, family/work vocabulary
 collisions, implicit obligations and ambiguous unquoted completions remain weak. Dev
 goal/intervention error rates cannot be measured. We do not hardcode identities or
 duplicate predictions to exploit repeated answer sources. Hidden performance is unknown.
@@ -76,10 +76,10 @@ duplicate predictions to exploit repeated answer sources. Hidden performance is 
 Inference never reads answers. Validated output is written atomically; unresolved
 schema/reference errors return nonzero. The client caches requests, bounds concurrency,
 reserves estimated cost and handles temporary in-flight-credit holds separately from
-permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 125
+permanent credit failures. A Linux watchdog caps execution below 30 minutes. All 156
 local tests pass; Python 3.10/3.12/3.14 and clean-container CI remain configured.
 
-A dense synthetic 20k-message/320-chat run takes 63.88 s with 5,000 task candidates,
+A dense synthetic 20k-message/320-chat run takes 49.05 s with 5,000 task candidates,
 valid output and zero model calls. This tests local runtime, not hidden accuracy.
 The optional hybrid path needs funded quality re-evaluation; it is not the grading
 configuration. We retain Dossier-ARR-PRISM rather than costly orchestration. Private

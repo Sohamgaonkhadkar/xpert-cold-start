@@ -60,3 +60,40 @@ I found a submission risk: supplying the evaluator’s key currently enables an 
 The current starter kit’s checker, schema and worked example match our copies. The dense synthetic test also finished: **20,000 messages, 320 chats and 5,000 task candidates in 63.88 seconds**. That supports the runtime requirement, though it does not establish hidden-set accuracy.
 
 The updated FAQ clarified another policy issue: other people’s tasks should stay untouched unless the user is waiting and they are overdue. I’ll remove the guessed “overdue after 60 hours” rule and align those reminders with the FAQ.
+
+
+## Continuation: offline-only evidence refinements
+
+### User
+
+I cannot fund the OpenRouter account, so stop requesting paid model credentials. We must finish this competition without spending money.
+
+Our current verified score is 28.95/56. I want you to focus on improving the accuracy as much as possible before tonight's 11:59 PM IST deadline.
+
+Analyze the remaining 24 missed labelled loops, 19 missed completions, relationship errors and organisation mismatches. Identify and implement only evidence-supported improvements that generalize to unseen conversations.
+
+Use the official development dataset and checker. Evaluate every meaningful change against the current 28.95/56 baseline. Preserve all existing tests, security protections and submission compatibility.
+
+Aim for 40+/56 if technically achievable, but do not force changes or overfit the development answers. Keep the highest-scoring verified version, even if that is 28.95.
+
+Do not call any paid API, wait for credentials, or delay submission because of OpenRouter.
+
+First confirm that the current main branch is ready for submission. Then report any verified accuracy improvements, test results and exact final commit SHA.
+
+Do not submit automatically.
+
+### Assistant
+
+I’ll use offline inference only—no paid API calls or credential requests. First I’ll verify that `main` is submission-ready, then investigate the remaining errors on the isolated branch. I’ll benchmark each meaningful change and retain the best verified version.
+
+### Assistant
+
+The first evidence-based fix raises the score to **29.2453/56**. The relationship classifier missed a direct “my brother — full name” introduction because it appeared in another chat. It now uses unambiguous full-name family introductions across chats while preserving seeds and rejecting conflicting claims.
+
+I’m next testing organisation-name collisions and replies that deliver promised information without saying “done.”
+
+### Assistant
+
+The best candidate is now **29.6654/56**. It adds one task match and resolves one missed completion, with zero false DONE among matched loops. A broader group-classification experiment scored worse, so I reverted it.
+
+I’m checking one remaining source issue: a “you both” message may be enough to disambiguate a numeric WhatsApp mention that the current resolver leaves unresolved.
