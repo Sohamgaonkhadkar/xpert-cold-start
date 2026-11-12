@@ -25,36 +25,69 @@ model credentials does not change this profile; model-assisted inference require
 
 | Category | Points |
 |---|---:|
-| Circles | 9.0732 / 12 |
-| Organisations | 3.6958 / 8 |
-| Chat ownership | 6.3415 / 8 |
-| Open loops found | 3.9773 / 14 |
-| Open loops closed correctly | 5.8649 / 14 |
+| Circles | 9.3659 / 12 |
+| Organisations | 3.7612 / 8 |
+| Chat ownership | 6.4390 / 8 |
+| Open loops found | 4.0453 / 14 |
+| Open loops closed correctly | 6.0541 / 14 |
 | Goals | Unlabelled |
 | Intervention decisions | Unlabelled |
-| **Total measurable on dev** | **28.9526 / 56** |
+| **Total measurable on dev** | **29.6654 / 56** |
 
-Exact total: `28.952575934283253`. Aggregate category scores, telemetry and source
-fingerprints are retained in [submission_verification.json](metrics/submission_verification.json).
+Exact total: `29.665430043043532`. Aggregate category scores, telemetry and source
+fingerprints are retained in [offline_accuracy_2026-11-12.json](metrics/offline_accuracy_2026-11-12.json). The earlier submission-profile verification remains in [submission_verification.json](metrics/submission_verification.json).
 The [11 November ablations](metrics/nov11_evaluation.md) and
 [12 November corrections](metrics/nov12_evaluation.md) document the measured changes.
+
+## Offline evidence refinements
+
+The starting `main` revision (`187ba66`) was rechecked at 28.9526/56 with all 125
+existing tests passing. The following changes use conversation evidence without
+reading reference labels during inference. No paid API was called for this evaluation.
+
+| Cumulative change | Official dev /56 |
+|---|---:|
+| Starting verified configuration | 28.9526 |
+| Direct full-name family introductions across chats | 29.2453 |
+| Prevent business-name "House" collisions with residence routing | 29.4082 |
+| Recognize a substantive answer fulfilling a reply promise | 29.5974 |
+| Recognize dated collaborative meeting proposals | **29.6654** |
+
+The family rule requires ME's direct introduction, an unambiguous full name and no
+conflicting explicit relationship; seeds remain authoritative. The reply rule requires
+an adjacent, on-topic owner response in a DM, bounded in time, and rejects deferrals,
+partial progress, unrelated quotations and generic acknowledgements. It completes
+only the communication promise, not an underlying repair. A completed preparation
+statement does not complete the subsequent meeting proposal.
+
+Broader bridge-group classification scored 29.4635 and was reverted. Numeric-mention
+alternatives scored 29.5868 and 29.6533 and were also reverted; one recovered an extra
+reference source but reduced the overall official score. This does not establish that
+its additional predictions were false, because the reference list is incomplete.
+
+The 74 reference loops contain 63 distinct accepted-source sets. The starting 19
+matched missed-completion labels all have empty accepted-closing-message lists.
+These facts do not prove an absence of evidence in the history. They do limit direct
+supervision: repeated predictions and expired-date completion rules were not used to
+fit the labels. The retained version has 23 unmatched reference entries and one fewer
+missed completion overall.
 
 ## Error analysis
 
 | Loop metric | Result |
 |---|---:|
-| Predictions | 278 |
-| Matched reference loops | 50 / 74 |
-| Label-based precision | 17.99% |
-| Label-based recall | 67.57% |
-| Label-based F1 | 28.41% |
+| Predictions | 279 |
+| Matched reference loops | 51 / 74 |
+| Label-based precision | 18.28% |
+| Label-based recall | 68.92% |
+| Label-based F1 | 28.90% |
 | False DONE among matched loops | 0 |
 | False DROPPED among matched loops | 0 |
 | Missed completions among matched loops | 19 |
-| Missed completions including undiscovered loops | 41 |
+| Missed completions including undiscovered loops | 40 |
 | Owner disagreements among matched loops | 6 |
 
-Ten of the 41 unseeded circle labels are incorrect. Sparse contacts, family/work
+Nine of the 41 unseeded circle labels are incorrect. Sparse contacts, family/work
 vocabulary collisions, dual roles and ambiguous organisation membership remain
 significant weaknesses. Informal requests and completion without explicit confirmation
 also remain difficult.
@@ -74,10 +107,10 @@ for PRISM's hand-set decision weights.
 
 | Measurement | Result | Interpretation |
 |---|---:|---|
-| Official dev, deterministic | 6.25 s | One local measured pipeline run |
+| Official dev, deterministic | 4.31 s | One local measured pipeline run |
 | Model calls / tokens | 0 / 0 | Default deterministic profile |
 | Model inference cost | $0 | No provider requests |
-| Dense synthetic fixture | 63.88 s | 20,000 messages, 320 chats, 5,000 designed task cases |
+| Dense synthetic fixture | 49.05 s | 20,000 messages, 320 chats, 5,000 designed task cases |
 | Dense synthetic validation | 5,000 discovered and completed; no schema errors | Designed cases, not hidden-set quality |
 
 Runtime varies by machine and workload. The synthetic test checks local computation
@@ -130,7 +163,7 @@ Only aggregate measurements are published here.
 
 ## Validation coverage
 
-The recorded regression suite has **125 passing tests**. Linux CI covers Python
+The recorded regression suite has **156 passing tests**. Linux CI covers Python
 3.10, 3.12 and 3.14 plus a clean Python 3.12 container. Checks include the official
 worked example and zero-seed variant (74/74), stdlib-only inference, caller-relative
 paths with spaces, credential-present deterministic execution and mocked hybrid

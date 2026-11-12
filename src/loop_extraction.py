@@ -404,6 +404,10 @@ def extract_open_loop_candidates(
         if re.match(r"^(?:reverting|sending|sharing)\s+(?:tomorrow|tonight|by\b|on\s+(?:mon|tue|wed|thu|fri))", match_body, re.IGNORECASE):
             has_self_commit = True
         has_question = bool(QUESTION_CUE_RE.search(match_body))
+        # A dated collaborative proposal can follow a completed preparation task
+        # in the same message. The preparation being done does not complete the meeting.
+        if re.search(r"\bwe can\s+(?:meet|discuss|review|talk|sit\s+(?:together|with))\b", match_body, re.IGNORECASE) and resolve_due_date(match_body, msg.ts):
+            has_question = True
         # A proposed meeting remains a decision even when an informal Hinglish
         # message omits its question mark.
         if re.search(r"\b(?:meet|meeting|call)\s+(?:pe|par)\s+karte\s+(?:hai|hain)\b", match_body, re.IGNORECASE):

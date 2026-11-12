@@ -203,6 +203,47 @@ Return JSON:
 {"status": "open|done|dropped", "closure_message_id": "<msg_id>|null", "owner": "ME|<person_id>", "due_date": "YYYY-MM-DD|null", "confidence": 0.0}"""
 
 
+def _delivers_promised_reply(cand: LoopCandidate, message: MessageRecord, index: ConversationIndex) -> bool:
+    """A substantive on-topic answer can fulfil a promise to get back to someone.
+
+    This resolves the communication promise, not any underlying repair or decision.
+    Restrict it to an adjacent owner response in a DM with an identifiable preceding
+    information request. Unrelated chatter and another deferral do not suffice.
+    """
+    if cand.is_task_list or message.sender_id != cand.owner or message.chat_id != cand.origin_msg.chat_id:
+        return False
+    if message.quoted_id and message.quoted_id not in {cand.origin_msg.id, *cand.related_msg_ids}:
+        return False
+    if index.chats[message.chat_id].is_group or not re.match(
+        r"^(?:reverting\b|(?:i(?:'ll| will)|we(?:'ll| will))\s+(?:revert\b|respond\b|get back to you\b))",
+        cand.origin_msg.body.strip(), re.IGNORECASE,
+    ):
+        return False
+    origin = index.enriched_by_id.get(cand.origin_msg.id)
+    response = index.enriched_by_id.get(message.id)
+    if not origin or not response or origin.chat_index < 1 or response.chat_index != origin.chat_index + 1:
+        return False
+    if not timedelta(0) <= message.ts - cand.origin_msg.ts <= timedelta(hours=48):
+        return False
+    request = index.by_chat[message.chat_id][origin.chat_index - 1]
+    if request.sender_id == cand.owner or cand.origin_msg.ts - request.ts > timedelta(hours=24):
+        return False
+    if not ("?" in request.body or re.search(r"\b(?:any (?:initial )?(?:thoughts|update|feedback|news|read)|how|what|when|whether)\b", request.body, re.IGNORECASE)):
+        return False
+    body = message.body.strip()
+    if "?" in body or DEFER_ANSWER_RE.search(body) or NEGATED_OR_FUTURE_COMPLETION_RE.search(body) or PARTIAL_PROGRESS_GUARD_RE.search(body) or re.match(r"^(?:i(?:'ll| will)|we(?:'ll| will)|let me)\b", body, re.IGNORECASE):
+        return False
+    if re.search(r"\b(?:no(?:\s+\w+){0,2}\s+(?:update|news|answer)|nothing to report|not sure|don't know|do not know|cannot say|can't say|still checking|need more time|waiting for)\b", body, re.IGNORECASE):
+        return False
+    if not re.match(r"^(?:(?:hi|hello|hey)[,!\s]+)?(?:here(?:'s| is)\b|update\s*[:\-]|we (?:found|measured|observed)\b|(?:the|our|your)\b.{0,90}?\b(?:is|are|has|have|now)\b)", body, re.IGNORECASE):
+        return False
+    if len(tokenize(body, drop_stopwords=False)) < 16:
+        return False
+    generic = {"any", "initial", "read", "how", "things", "going", "what", "when", "whether", "update", "thoughts", "please", "can", "could", "need", "know", "feedback"}
+    topics = set(tokenize(request.body)) - generic
+    return bool(topics & set(tokenize(body)))
+
+
 def _covers_task_bundle(cand: LoopCandidate, body: str) -> bool:
     """A statement about one item cannot resolve a bundled list of actions."""
     return not cand.is_task_list or bool(re.search(
@@ -601,6 +642,9 @@ def _evaluate_trail_deterministic(
         # 7. Substantive answer to an open `question` loop
         # Completing or delivering one list item does not complete the bundle.
         if not covers_bundle:
+            continue
+        if status == "open" and _delivers_promised_reply(cand, m, index):
+            status, closure_id, confidence = "done", m.id, 0.86
             continue
         origin_turn = index.enriched_by_id.get(cand.origin_msg.id)
         response_turn = index.enriched_by_id.get(m.id)

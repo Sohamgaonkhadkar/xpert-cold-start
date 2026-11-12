@@ -589,7 +589,7 @@ def infer_organisations_and_chats(
                 score += 5.5
             if org.type == "workspace" and (ctoks & WORKSPACE_KEYWORDS):
                 score += 5.5
-            if org.type == "residence" and (
+            if org.type == "residence" and not branded_delivery and (
                 (ctoks & HOME_GROUP_KEYWORDS)
                 or cid in home_group_candidates
                 or (

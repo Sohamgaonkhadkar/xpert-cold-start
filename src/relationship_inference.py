@@ -823,6 +823,41 @@ def _discover_unseeded_work_tokens(
     return discovered
 
 
+def _explicit_family_mentions(index: ConversationIndex, dossiers: Dict[str, ContactDossier]) -> Dict[str, Tuple[str, List[str]]]:
+    """Resolve ME's direct family introductions across chats, using unique full names.
+
+    A contact's own DM can be sparse while ME identifies them clearly elsewhere.
+    Require a full-name match immediately after the kinship phrase; shared surnames,
+    quoted speech, third-party relatives and conflicting introductions are insufficient.
+    """
+    names: Dict[Tuple[str, ...], List[str]] = defaultdict(list)
+    for pid, dossier in dossiers.items():
+        tokens = tuple(tokenize(dossier.display_name, drop_stopwords=False))
+        if len(tokens) >= 2 and all(t.isalpha() for t in tokens):
+            names[tokens].append(pid)
+    kinship = {"brother": "sibling", "sister": "sibling", "mother": "parent", "father": "parent",
+               "mom": "parent", "dad": "parent", "wife": "spouse", "husband": "spouse"}
+    intro = re.compile(r"^(?:this is\s+)?my\s+(?:(?:older|younger|elder)\s+)?(brother|sister|mother|father|mom|dad|wife|husband)\b\s*(?:(?:is|only)\b\s*)?[-,:–—]*\s*", re.IGNORECASE)
+    claims: Dict[str, Dict[str, List[str]]] = defaultdict(lambda: defaultdict(list))
+    for message in index.messages:
+        if message.sender_id != USER_ID:
+            continue
+        match = intro.match(message.body.strip())
+        if not match:
+            continue
+        tail = tuple(tokenize(message.body.strip()[match.end():], drop_stopwords=False))
+        hits = [(len(name), ids[0]) for name, ids in names.items()
+                if len(ids) == 1 and tail[:len(name)] == name
+                and not (len(tail) > len(name) and tail[len(name)] == "s")]
+        if hits:
+            longest = max(length for length, _ in hits)
+            ids = {pid for length, pid in hits if length == longest}
+            if len(ids) == 1:
+                claims[next(iter(ids))][kinship[match.group(1).lower()]].append(message.id)
+    return {pid: (next(iter(values)), next(iter(values.values())))
+            for pid, values in claims.items() if len(values) == 1}
+
+
 def infer_people_circles(
     index: ConversationIndex,
     llm: LLMClient,
@@ -1003,6 +1038,17 @@ def infer_people_circles(
                 stage="relationship_tier0_fallback",
             )
 
+    explicit_family = _explicit_family_mentions(index, dossiers)
+    for pid, (circle, evidence) in explicit_family.items():
+        if predictions[pid].source == "seed":
+            continue
+        predictions[pid].circle = circle
+        predictions[pid].confidence = 0.99
+        predictions[pid].evidence = list(dict.fromkeys(evidence + predictions[pid].evidence))
+        ledger.record(subject_type="person", subject_id=pid, field_name="circle", predicted_value=circle,
+                      strength="explicit", confidence=0.99, message_ids=evidence,
+                      rationale="ME directly identifies an unambiguous full-name family member", stage="relationship_explicit_family")
+
     # A dominant home-linked DM is stronger spouse evidence than generic 'love',
     # sibling-group membership or family members talking about hired staff.
     if not any(p.source == "seed" and p.circle == "spouse" for p in predictions.values()):
@@ -1013,7 +1059,7 @@ def infer_people_circles(
             home_link = any(set(tokenize(name, drop_stopwords=False)) & {"home", "ghar", "kitchen", "carpool", "household"}
                             for name in dossiers[pid].group_names)
             explicit_worker = set(tokenize(predictions[pid].name)) & (STAFF_ROLE_WORDS | VENDOR_ROLE_WORDS)
-            eligible_family_ambiguity = predictions[pid].circle in ("friend", "relative", "sibling", "spouse")
+            eligible_family_ambiguity = pid not in explicit_family and predictions[pid].circle in ("friend", "relative", "sibling", "spouse")
             if count >= 80 and count >= 2.5 * max(1, runner_up) and home_link and not explicit_worker and eligible_family_ambiguity and predictions[pid].source != "seed":
                 predictions[pid].circle = "spouse"
                 predictions[pid].confidence = 0.99
@@ -1045,6 +1091,7 @@ def infer_people_circles(
             top_pred = predictions.get(top_pid)
             if (
                 top_pred
+                and top_pid not in explicit_family
                 and top_pred.source != "seed"
                 and top_pred.circle in ("friend", "relative", "sibling")
                 and top_cnt >= 80
