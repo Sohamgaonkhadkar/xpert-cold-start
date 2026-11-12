@@ -46,3 +46,6 @@ credentials*
 /out*.json
 /telemetry*.json
 /predictions/
+
+# Generated mock benchmark snapshot, not official performance evidence
+/metrics/experiment_results.json

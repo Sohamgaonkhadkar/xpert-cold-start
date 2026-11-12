@@ -195,7 +195,10 @@ at the authorized Arena merge. The working tree is verified clean at delivery.
 The GitHub connector returned 403 when asked to create a draft PR, so no improvement
 PR was created. The pushed branch is directly reviewable; it has not been merged.
 
-Changed files relative to the integrated main branch:
+Historical 7 November file inventory relative to the integrated main branch follows.
+The later documentation cleanup removed the superseded `AUDIT.md` and generated mock
+snapshot `metrics/experiment_results.json`; current architecture and verified evidence
+remain in `ARCHITECTURE.md`, this report and the official aggregate metrics.
 
 ```text
 .gitattributes

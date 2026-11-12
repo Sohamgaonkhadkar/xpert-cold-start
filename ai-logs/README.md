@@ -9,6 +9,6 @@
 * `codex-nov11-12-visible-excerpts.md`: selected genuine visible turns from the final
   dev tuning and submission preparation; explicitly not a complete export.
 
-`AUDIT.md`, `EVALUATION.md` and commit diffs preserve the review decisions and measured
+`EVALUATION.md`, `ARCHITECTURE.md` and commit diffs preserve the review decisions and measured
 outcomes. No missing historical conversation has been fabricated. Credentials, model
 responses and raw challenge conversations must not appear in this directory.
