@@ -1,124 +1,306 @@
-# Xpert Cold Start Challenge — `Dossier-ARR-PRISM`
+# Xpert Cold Start · Dossier–ARR–PRISM
 
-A fast, evidence-grounded, cost-cascaded memory and proactive intervention engine for the **Xpert Winter Internship 2026 Cold Start Challenge**.
+**Turn WhatsApp conversation history into an evidence-grounded picture of a person's relationships, organisations, goals and unfinished work.**
 
-Given ~8 weeks of multilingual WhatsApp conversations (`chats.jsonl`, `messages.jsonl`) across English, Hindi, Bengali, and Hinglish plus partial `seed.json` context, `Dossier-ARR-PRISM` infers:
-1. **People & Circles** (`12` circles, user organisation `runs | supports` links, and `staff` individual care links),
-2. **User Organisations & Chat Ownership** (separating home/work domains while excluding external client companies and routing person-centric groups such as a child's class group to that person),
-3. **Personal Goals** ($\le 10$ evidence-grounded `habit | milestone | experience` goals across `10` life areas and `4` horizons),
-4. **Open Loops & Cross-Chat Closure** (`commitment | followup | deadline | question`, owner, relative due-date anchored to `msg.ts`, final `open | done | dropped` status with Asymmetric Closure Guards), and
-5. **Where to Help (`assist | remind | leave`)** via a PRISM expected-loss decision gate calibrated for asymmetric intervention penalties, plus an isolated **live-interview user correction engine**.
+[![Validation](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/workflows/ci.yml/badge.svg?branch=codex%2Ffinal-evaluation-hardening)](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/workflows/ci.yml)
+![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Default mode: deterministic](https://img.shields.io/badge/default-deterministic-166534)
 
----
+Built for the [Xpert Cold Start Challenge](https://goals.xpert.chat/w/intern). This Python batch engine reads an exported dataset and writes one validated JSON file. It does not connect to WhatsApp or require a database, frontend or background service.
 
-## Quickstart
+> **Verified grading profile:** the two-argument command uses deterministic inference, even when model credentials are present. Official dev: **28.9526/56**, **zero model calls**. Hybrid inference is an explicit experimental option; its final-source quality has not been independently verified with a funded model run.
 
-### 1. One-Command Execution (Official Contract)
+## Contents
+
+- [What it produces](#what-it-produces)
+- [Quick start](#quick-start)
+- [Input and output](#input-and-output)
+- [Architecture](#architecture)
+- [Execution modes](#execution-modes)
+- [Configuration](#configuration)
+- [Verified results](#verified-results)
+- [Evaluation and testing](#evaluation-and-testing)
+- [Corrections](#corrections)
+- [Reliability and privacy](#reliability-and-privacy)
+- [Repository guide](#repository-guide)
+- [Known limitations](#known-limitations)
+
+## What it produces
+
+| Component | Output |
+|---|---|
+| People | One supported relationship circle per person, organisation links and staff care relationships |
+| Organisations and chats | Associated organisations with type, side and role; one person or organisation owning each chat |
+| Goals | Up to ten supported goals with area, type, horizon and source-message evidence |
+| Open loops | Commitments, follow-ups, deadlines and questions, including owner, source, due date and final status |
+| Intervention | `assist`, `remind` or `leave` for every open loop, with a next step, approval requirement, reminder time or reason |
+
+Supported circles: `spouse`, `child`, `parent`, `in-law`, `sibling`, `relative`, `friend`, `colleague`, `client`, `vendor`, `partner` and `staff`.
+
+The engine handles English and common Hindi, Bengali and Hinglish cues, preserves speaker identity, and treats voice transcripts as text evidence. Multilingual coverage is rule-based and incomplete.
+
+## Quick start
+
+### Requirements
+
+- Python **3.10 or newer**.
+- Bash; use Git Bash on Windows.
+- No API key or third-party Python package is required for default inference. An internal stdlib validator supports the official schema when `jsonschema` is absent.
+
 ```bash
-bash run.sh <input_folder> <output_path>
-```
-`run.sh` works out-of-the-box in a clean container using `.venv/bin/python` when available or falling back cleanly to system `python3` (zero mandatory non-stdlib runtime dependencies; `httpx` and `jsonschema` are used automatically when installed).
+git clone https://github.com/Sohamgaonkhadkar/xpert-cold-start.git
+cd xpert-cold-start
+git switch codex/final-evaluation-hardening
 
-### 2. Configure the Evaluator OpenAI-Compatible Model Endpoint
+# Run the included public worked example.
+bash run.sh example outputs/example.json
+
+# Validate and score it with the official checker.
+python3 check.py example outputs/example.json
+```
+
+For your dataset:
+
 ```bash
-export LLM_BASE_URL="https://api.openai.com/v1"   # or evaluator-provided OpenAI-compatible URL (falls back to OPENAI_BASE_URL)
-export LLM_API_KEY="sk-..."                       # falls back to OPENAI_API_KEY
-export LLM_MODEL="gpt-4.1-mini"                   # supports chat & reasoning models (auto max_completion_tokens)
-# Optional container budget ceilings (defaults: 1200s wall-clock, $5.00 max cost):
-# export LLM_MAX_WALL_SEC=1200 LLM_MAX_COST_USD=5.00
-bash run.sh /path/to/data /path/to/output.json --telemetry /path/to/telemetry.json
+bash run.sh /path/to/input /path/to/output.json
 ```
-*Privacy & Network Guarantee:* Runtime outbound network traffic is strictly limited to `LLM_BASE_URL`. No external embedding APIs, vector databases, or third-party web requests are ever made. If `LLM_API_KEY` is unset, the pipeline degrades gracefully to its deterministic Tier-0 mode and still emits 100% schema-valid output.
 
-### 3. Live-Interview User Corrections (Fast Isolated Cascade)
-During a live review/interview, corrections to a person's circle, organisation membership, chat ownership, loop owner, or loop status can be applied without re-running unrelated predictions:
+Paths may contain spaces and are resolved relative to the caller. Input and output can be outside the repository. The process returns nonzero on missing input, unresolved validation errors or other reported failures.
+
+Install the development and hybrid dependencies when needed:
+
 ```bash
-# Build or append corrections via CLI flags or natural-language statements:
-python3 -m src.corrections --file corrections.json --person-circle p_colleague_2 partner
-python3 -m src.corrections --file corrections.json --chat-owner c_grp_friends organisation org_zephyr
-python3 -m src.corrections --file corrections.json --loop-owner loop_017 p_colleague_1
-python3 -m src.corrections --file corrections.json --say "loop_009 is done via m102"
-
-# Apply corrections cleanly during run.sh execution:
-bash run.sh <input_folder> <output_path> --corrections corrections.json
+python3 -m venv .venv
+source .venv/bin/activate             # Git Bash on Windows: source .venv/Scripts/activate
+python3 -m pip install -r requirements.txt
 ```
 
----
+See [SUBMISSION.md](SUBMISSION.md) for the challenge handoff. Use an immutable commit SHA as the commit to grade.
 
-## Official `starter.zip` Schema, Scorer (`check.py`) & `$LLM_USAGE_LOG` Parity
-* Includes the official `starter.zip` `schema.json`, `check.py` validator/74-point scorer, and worked `example/` dataset (`Meera`).
-* Verified **`74.0 / 74` (`1.00` across all 7 categories, `0` schema/semantic errors)** on `example/` in **both seeded and `0%`-seed** modes:
-  ```bash
-  bash run.sh example /tmp/ex_out.json && python3 check.py example /tmp/ex_out.json
-  ```
-* `src/llm_client.py` appends `{model, prompt_tokens, completion_tokens, seconds}` to `$LLM_USAGE_LOG` on live calls and defaults to `usage.jsonl` when the variable is unset.
+## Input and output
 
-## Competitor Checkpoint & Pass-6 Hardening (2026-11-07)
-A fresh GitHub API check found no newer public Xpert Cold Start solution:
-* [`CodeInfinity1/cold-start`](https://github.com/CodeInfinity1/cold-start) was last pushed **Nov 3**; its latest code was previously measured at **50.6/74** on the official example and **27.6/56** on public `data/dev`.
-* [`Remycooks/Xpert_Challenge`](https://github.com/Remycooks/Xpert_Challenge) was last pushed **Nov 4**; its v1.1 rules solution leaves goals and open loops empty.
-* [`dipgarg0011/Xpert-Cold-Start`](https://github.com/dipgarg0011/Xpert-Cold-Start) remains an empty repository. No additional matching submission surfaced in the repository search.
-
-Competitor-informed additions now cover WhatsApp numeric `@` JID/LID resolution, place-named staff, CamelCase org acronyms and active core-member overlap, self-only Notes-to-Self chats, departed-sender/loop-owner guards, media and birthday-noise suppression, document closure evidence, slash dates, and Hinglish `tmrw`/`batao`/`lmk`. The updated 20k-message/320-chat audit completes in **1.04s** with **14,664 prompt tokens**; all **51 tests pass**, and the official example remains **74.0/74**.
-
----
-
-## Repository Structure
 ```text
-├── run.sh                              # Official entrypoint: bash run.sh <input_folder> <output_path>
-├── check.py                            # Official starter.zip stdlib validator & 74-point scorer
-├── schema.json                         # Official starter.zip JSON Schema (strict additionalProperties: false)
-├── example/                            # Official starter.zip worked dataset + answers/answers.json (74.0 / 74)
-├── requirements.txt / pyproject.toml   # Minimal pure-Python dependencies (httpx, jsonschema, pytest)
-├── ARCHITECTURE.md                     # Architecture Decision Record (literature review + 4-way trade-off matrix)
-├── WRITEUP.md                          # <=2-page submission write-up (approach, ablations, failures, $/1k msgs)
-├── metrics/experiment_results.json     # Machine-readable results from Controlled Experiments 0..5 & robustness suites
-├── ai-logs/session-summary.md          # Engineering & AI steering log (hypotheses, bugs caught, verifications)
-├── src/
-│   ├── models.py                       # Official enums, dataclasses, and append-only EvidenceLedger
-│   ├── indic_normalizer.py             # Zero-ASCII-overhead Devanagari (Hindi) & Bengali Unicode normalizer
-│   ├── data_loader.py                  # Timezone-preserving, order-invariant JSONL & seed.json parser
-│   ├── conversation_index.py           # Dynamic ME-alias inference + two-phase inverted BM25 & cached char n-gram index
-│   ├── llm_client.py                   # OpenAI-compatible client (pooling, reasoning-model auto-downgrade, $/1k caps)
-│   ├── relationship_inference.py       # Contact Dossiers, conditioned seed propagation, staff care-target inference
-│   ├── organisation_inference.py       # User org discovery, client-company exclusion, person-vs-org chat routing
-│   ├── goal_extraction.py              # Precision-first <=10 evidence-backed goal extraction
-│   ├── loop_extraction.py              # Multilingual loop candidate discovery, msg.ts date resolver, cross-chat dedup
-│   ├── temporal_resolver.py            # ARR cross-chat trail retrieval & 4 Asymmetric Closure Guards
-│   ├── intervention_policy.py          # PRISM expected-loss gate (assist | remind | leave + needs_approval floor)
-│   ├── corrections.py                  # Structured + NL live-interview correction parser & isolated cascade
-│   ├── evidence_validator.py           # Deterministic referential, temporal, and enum invariant repair
-│   ├── schema_adapter.py               # Dynamic schema-introspecting serializer & JSON Schema validator
-│   ├── output_builder.py               # End-to-end pipeline orchestrator & telemetry collector
-│   └── cli.py                          # CLI driver invoked by run.sh
-├── scripts/
-│   ├── checker.py                      # Local official-rubric scorer (86 automated + 7 execution points)
-│   ├── baseline.py                     # Naive baseline (Experiment 0) for controlled comparison
-│   ├── generate_synthetic_suite.py     # Multilingual 20-adversarial-case WhatsApp benchmark generator
-│   └── run_experiments.py              # Controlled ablations (Exp 0..5) + 5 robustness audits
-└── tests/
-    ├── test_adversarial_20.py            # End-to-end tests for all 20 adversarial WhatsApp failure modes
-    ├── test_bottlenecks_and_multilingual.py # Native Devanagari/Bengali Unicode, Whisper ASR fuzzy join, 8-week 20k scale tests
-    ├── test_official_starter_and_competitor_traps.py # Official check.py 74/74 (seeded & 0%-seed), $LLM_USAGE_LOG, Marathi/Tamil & competitor traps
-    ├── test_redteam_audit_fixes.py       # Hidden-persona rename, IST midnight TZ, bystander guards, reasoning-model & scale tests
-    ├── test_robustness_and_validators.py # Order shuffle, temporal truncation, empty seed, validator & schema alias tests
-    ├── test_corrections_and_cli.py       # All 5 live-interview correction types, cascade isolation, and run.sh CLI tests
-    └── test_pass6_whatsapp_edges.py     # Departed senders, self-chats, numeric mentions, media, dates, org overlap, and place-named staff
+input/
+├── chats.jsonl       # Chat IDs, names and participant IDs
+├── messages.jsonl    # Message IDs, chat/sender IDs, timestamps, kind and body
+└── seed.json         # Optional known relationships, organisations and goals
 ```
 
----
+`ME` identifies the user. The [public example](example/) demonstrates the exact format. Message kinds include `text`, `voice_transcript`, `image_caption` and `document`.
 
-## Reproducing Tests & Benchmarks
+The output follows [schema.json](schema.json) and contains five top-level arrays:
+
+```json
+{
+  "people": [],
+  "organisations": [],
+  "chats": [],
+  "goals": [],
+  "open_loops": []
+}
+```
+
+This illustrates the structure; actual records reference input IDs. `source_msg`, goal evidence and closure messages retain their original message IDs. A completed or dropped loop requires closing evidence. Inference never reads `answers/`; only evaluation tools use reference answers.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    A[Chats, messages and optional seed] --> B[Load and index original evidence]
+    B --> C[Contact dossiers and relationship inference]
+    C --> D[Organisation discovery and chat ownership]
+    B --> E[Evidence-grounded goal extraction]
+    C --> F[Anchor: identify task candidates]
+    F --> G[Retrieve: collect chronological evidence]
+    G --> H[Reconcile: owner, due date and final status]
+    H --> I[PRISM intervention policy]
+    D --> J[User corrections]
+    E --> J
+    I --> J
+    J --> K[Schema and reference validation]
+    K --> L[Atomic JSON output]
+```
+
+| Layer | Responsibility | Main modules in `src/` |
+|---|---|---|
+| Evidence index | Original turns, participants, dates and lexical retrieval | `data_loader.py`, `conversation_index.py`, `indic_normalizer.py` |
+| Dossiers | Contact names, seed labels, group context and speaker-attributed messages | `relationship_inference.py`, `organisation_inference.py` |
+| Goals | Message support and user endorsement; maximum ten goals | `goal_extraction.py` |
+| ARR | **Anchor–Retrieve–Reconcile**: extract, deduplicate and resolve task evidence | `loop_extraction.py`, `temporal_resolver.py` |
+| PRISM | Asymmetric decision costs for assistance, reminders and restraint | `intervention_policy.py` |
+| Output contract | Corrections, safe repairs, validation and atomic writing | `corrections.py`, `evidence_validator.py`, `submission_validator.py`, `output_builder.py` |
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the current design and trade-offs. PRISM's class weights are engineering assumptions, not empirically calibrated probabilities.
+
+## Execution modes
+
+| Mode | Select with | Network and cost | Intended use |
+|---|---|---|---|
+| **Deterministic** | Default, or `--mode deterministic` | No model calls; $0 model inference cost | Verified grading profile and offline runs |
+| **Hybrid** | `--mode hybrid` | Selective OpenAI-compatible model calls with client limits | Explicit experiments; final-source quality remains unverified |
+
+Hybrid mode supplements uncertain relationship, organisation, goal, loop and intervention decisions. Deterministic validation and closure safeguards still apply. Setting an API key does **not** activate hybrid mode.
+
 ```bash
-# 1. Install dependencies (optional if using bare stdlib Tier-0 mode)
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+export LLM_BASE_URL=https://openrouter.ai/api/v1
+export LLM_API_KEY='<your private key>'
+export LLM_MODEL=openai/gpt-4.1-mini
+export LLM_USAGE_LOG=private-reports/usage.jsonl
 
-# 2. Validate & score against the official starter.zip check.py (74.0 / 74)
-bash run.sh example /tmp/ex_out.json && python3 check.py example /tmp/ex_out.json
-
-# 3. Run all 51 automated official-starter, adversarial, multilingual Unicode, ASR, red-team, 20k-scale, and CLI tests
-.venv/bin/pytest -v
-
-# 4. Reproduce Controlled Experiments 0..5 + Robustness & 20k-Scale Audits -> metrics/experiment_results.json
-.venv/bin/python scripts/run_experiments.py
+bash run.sh data/dev private-reports/hybrid.json \
+  --mode hybrid \
+  --telemetry private-reports/hybrid-telemetry.json
 ```
+
+`openai/gpt-4.1-mini` and `openai/gpt-4o-mini` returned real responses in earlier testing. Credit failures prevented a clean final hybrid comparison. Those historical measurements are in [EVALUATION.md](EVALUATION.md); they do not establish the quality of the current hybrid implementation.
+
+## Configuration
+
+### CLI options
+
+| Option | Purpose |
+|---|---|
+| `--mode deterministic\|hybrid` | Inference mode; default is `deterministic` |
+| `--telemetry PATH` | Stage timing, model usage, cost details and repair counts |
+| `--corrections PATH` | Structured or supported natural-language corrections |
+| `--schema PATH` | Explicit schema file |
+| `--quiet` | Suppress the completion summary on stderr |
+
+Run `python3 -m src.cli --help` for the full interface.
+
+### Hybrid environment variables
+
+| Variable | Default / purpose |
+|---|---|
+| `LLM_BASE_URL` | OpenAI-compatible API base URL |
+| `LLM_API_KEY` | Private provider credential |
+| `LLM_MODEL` | Exact provider model ID |
+| `LLM_USAGE_LOG` | Optional local JSONL usage log |
+| `LLM_MAX_CONCURRENCY` | `6`; use `1` when testing a small-credit account |
+| `LLM_MAX_WALL_SEC` | `1380` seconds for model work |
+| `LLM_MAX_COST_USD` | `2.50` estimated admission budget |
+| `LLM_INPUT_COST_PER_1M` | Optional input-token rate for estimation |
+| `LLM_OUTPUT_COST_PER_1M` | Optional output-token rate for estimation |
+
+Admission costs are estimates. Provider-reported billing is recorded separately when available; failed requests can omit usage. Temporary in-flight credit holds and exhausted account credit are handled separately. These controls do not guarantee provider availability.
+
+## Verified results
+
+Recorded on **12 November 2026**. The official dev set contains **4,502 messages, 138 chats and 286 people**.
+
+| Official dev category | Points |
+|---|---:|
+| Circles | 9.0732 / 12 |
+| Organisations | 3.6958 / 8 |
+| Chat ownership | 6.3415 / 8 |
+| Open loops found | 3.9773 / 14 |
+| Open loops closed correctly | 5.8649 / 14 |
+| **Total measurable on dev** | **28.9526 / 56** |
+
+Goals and intervention decisions are **unlabelled in dev**. Their accuracy and the full competition score cannot be inferred from this total.
+
+| Verification | Recorded result |
+|---|---|
+| Development improvement | 19.7995 → **28.9526 / 56** |
+| Labelled loops found | **50 / 74** among 278 predictions |
+| Label-based precision / recall / F1 | **17.99% / 67.57% / 28.41%** |
+| False DONE among matched loops | **0** |
+| Public worked example, including zero-seed variant | **74 / 74** |
+| Regression suite | **125 passing tests** |
+| CI environments | Python **3.10, 3.12, 3.14** and a clean **3.12 container** |
+| Dense synthetic runtime | **63.88 s**: 20,000 messages, 320 chats, 5,000 designed task cases |
+| Graded profile model usage | **0 calls, 0 tokens, $0** |
+
+The dense fixture tests local runtime and designed cases; it is not hidden-set accuracy or network latency. Dev results were obtained after iterative tuning. Incomplete labels mean unmatched predictions are not automatically invalid tasks.
+
+Evidence: [final verification](metrics/submission_verification.json), [evaluation report](EVALUATION.md), [11 November ablations](metrics/nov11_evaluation.md) and [12 November corrections](metrics/nov12_evaluation.md).
+
+## Evaluation and testing
+
+### Offline checks
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 -m pytest -q
+
+bash run.sh example outputs/example.json
+python3 check.py example outputs/example.json
+python3 -m scripts.evaluate_official example outputs/example.json
+```
+
+Tests cover schema/reference integrity, deterministic grading with credentials present, mocked hybrid transport, identity and seed variations, multilingual cues, ownership, partial completion, cross-chat evidence, corrections and shell packaging. Tests isolate credentials and do not spend API credits.
+
+### Official development evaluation
+
+Download the [official dataset](https://goals.xpert.chat/w/intern/data) into ignored `data/dev/`. Keep private data and predictions out of Git.
+
+```bash
+bash run.sh data/dev private-reports/dev.json \
+  --telemetry private-reports/dev-telemetry.json
+
+python3 check.py data/dev private-reports/dev.json
+python3 -m scripts.evaluate_official data/dev private-reports/dev.json \
+  --report private-reports/dev-report.json
+```
+
+For a deliberately funded hybrid evaluation, the helper reads the named model variables from an explicit local file without printing the key:
+
+```bash
+python3 -m scripts.live_evaluation data/dev private-reports/live-run \
+  --env-file /path/to/private.env
+```
+
+Use a fresh destination for each live run. Historical synthetic scripts remain for regression work; their custom scorer and test-aware mock do not replace `check.py` or real-model measurements. Generated mock benchmark snapshots are intentionally untracked.
+
+## Corrections
+
+The correction layer updates people, organisation records, chat ownership and task ownership/status while recomputing affected interventions.
+
+```bash
+python3 -m scripts.correction_demo
+bash run.sh example outputs/corrected.json --corrections /path/to/corrections.json
+```
+
+Prefer exact person IDs and originating message IDs. Ambiguous names fail clearly, and DONE/DROPPED corrections require later input evidence. Corrections are scoped changes rather than a new global inference rule. See [INTERVIEW.md](INTERVIEW.md) for the ten-minute walkthrough.
+
+## Reliability and privacy
+
+- **Evidence before closure:** acknowledgements, future promises and expired deadlines do not establish completion. Finishing one list item does not finish the bundle.
+- **Explicit ownership:** group membership alone does not make an unaddressed request the user's responsibility.
+- **Fail-closed output:** safe repairs precede schema and reference checks. Unresolved errors prevent a successful write; valid output replaces the destination atomically.
+- **Bounded execution:** the Linux launcher adds a 1,740-second watchdog when `timeout` is available. Model work has a shorter client budget.
+- **Restricted network use:** default inference is offline. Explicit hybrid requests go to the configured endpoint; redirects are refused.
+- **Private data stays untracked:** ignore rules exclude datasets, credentials, environments, model responses and runtime outputs. Only aggregate evidence belongs in `metrics/`.
+- **Transparent records:** `ai-logs/` contains genuine available transcripts, selected excerpts and the original development summary. Missing historical transcripts are disclosed.
+
+Never commit API keys or private conversations. Follow the organisers' data retention requirements.
+
+## Repository guide
+
+```text
+src/                 Inference, model transport, corrections and validation
+scripts/             Evaluation, synthetic fixtures and development utilities
+tests/               Offline unit, integration and adversarial regressions
+example/             Official public worked example and permitted answers
+metrics/             Aggregate official measurements and rendered write-up
+ai-logs/             Genuine available AI-assisted development records
+.github/workflows/   Linux validation and clean-container CI
+run.sh               Required two-argument entry point
+schema.json          Official output contract
+check.py             Official validator and scorer
+```
+
+| Document | Purpose |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Current pipeline, responsibilities and trade-offs |
+| [EVALUATION.md](EVALUATION.md) | Verified measurements, historical experiments and evidence boundaries |
+| [WRITEUP.md](WRITEUP.md) · [PDF](metrics/writeup.pdf) | Two-page challenge write-up |
+| [SUBMISSION.md](SUBMISSION.md) | Grading profile, submission fields and handoff |
+| [INTERVIEW.md](INTERVIEW.md) | Reproducible correction demonstration |
+| [AI records](ai-logs/README.md) | Record provenance and transcript availability |
+
+## Known limitations
+
+The final dev run has **24 unmatched reference loops**, **19 matched missed completions**, **six matched owner disagreements** and **ten incorrect unseeded circle labels out of 41**. Organisation membership and chat ownership remain ambiguous for sparse or mixed-role contacts.
+
+Some reference origins are fragments, media, social messages or repeated sources, and some completed labels lack visible closure. The engine does not memorize these cases or duplicate predictions to exploit the checker. Goal and intervention quality cannot be measured from the unlabelled dev categories. Current hybrid quality and hidden-set ranking remain unverified.

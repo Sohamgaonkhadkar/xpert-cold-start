@@ -6,7 +6,10 @@ import argparse
 import sys
 from pathlib import Path
 
+from .llm_client import LLMClient
 from .output_builder import run_pipeline
+
+INFERENCE_MODES = ("deterministic", "hybrid")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -16,6 +19,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("input_folder", help="Folder containing chats.jsonl, messages.jsonl, and seed.json")
     parser.add_argument("output_path", help="Destination path for output.json")
+    parser.add_argument(
+        "--mode", choices=INFERENCE_MODES, default="deterministic",
+        help="Graded default: verified deterministic rules; hybrid explicitly enables the configured model",
+    )
     parser.add_argument(
         "--corrections",
         default=None,
@@ -38,16 +45,23 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    output, _ = run_pipeline(
-        input_folder=Path(args.input_folder),
-        output_path=Path(args.output_path),
-        corrections_path=args.corrections,
-        schema_path=args.schema,
-        telemetry_path=args.telemetry,
-    )
+    try:
+        output, _ = run_pipeline(
+            input_folder=Path(args.input_folder),
+            output_path=Path(args.output_path),
+            corrections_path=args.corrections,
+            schema_path=args.schema,
+            telemetry_path=args.telemetry,
+            llm_client=LLMClient(base_url="", api_key="", model="") if args.mode == "deterministic" else None,
+        )
+    except (OSError, ValueError) as exc:
+        sys.stderr.write(f"[xpert-cold-start] Failed: {exc}\n")
+        return 1
 
     if not args.quiet:
         tel = output.telemetry
+        if tel.model_used != "deterministic-tier0" and tel.llm_calls == 0:
+            sys.stderr.write("[xpert-cold-start] No successful model responses; using deterministic fallback.\n")
         sys.stderr.write(
             f"[xpert-cold-start] Completed in {tel.stage_timings_sec.get('total_sec', 0.0):.2f}s | "
             f"msgs={tel.total_messages} | model={tel.model_used} | "

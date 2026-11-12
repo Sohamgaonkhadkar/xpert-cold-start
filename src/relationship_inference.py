@@ -268,7 +268,10 @@ def _score_dossier_tier0(
     scores["friend"] = 0.25  # Default social acquaintance base prior over rare circles (spouse/child/in-law) when zero cues fire
     evidence_ids: List[str] = []
 
-    raw_disp = dossier.display_name
+    # Preserve role/kinship cues from alternate saved names, rather than losing
+    # them whenever a more frequent spelling wins best_name().
+    aliases = sorted(index.person_names.get(dossier.person_id, {}))
+    raw_disp = " ".join(dict.fromkeys([dossier.display_name] + aliases))
     disp_norm = normalize_indic_for_matching(raw_disp) if not raw_disp.isascii() else raw_disp
     name_low = disp_norm.lower()
     name_tokens = set(tokenize(name_low, drop_stopwords=False))
@@ -306,6 +309,8 @@ def _score_dossier_tier0(
     if name_tokens & VENDOR_ROLE_WORDS or re.search(r"\bca\b|\badv\.?\b|\bdr\.?\b", name_low):
         scores["vendor"] += 5.5
         _collect_ev(VENDOR_CONTEXT_WORDS | VENDOR_ROLE_WORDS)
+    if re.search(r"\btrading\s+(?:company|co)\b", name_low):
+        scores["vendor"] += 5.5
     # Place-word in a personal contact name ("Ramesh Home", "Sunil Office", "Kishan Farmhouse") -> staff at that place
     if (
         len(name_tokens) >= 2
@@ -331,6 +336,8 @@ def _score_dossier_tier0(
         scores["partner"] += 5.0
     if "client" in name_tokens:
         scores["client"] += 5.5
+    if any(re.search(r"\bsiblings?\b", g, re.IGNORECASE) for g in dossier.group_names):
+        scores["sibling"] += 9.0
 
     # Disambiguate Indian "<FirstName> didi / bhaiya / tai" domestic staff vs real sibling!
     # A real older sister "Didi" never calls ME "didi"/"madam"/"sir" back while asking what to cook or reporting chores.
@@ -380,12 +387,19 @@ def _score_dossier_tier0(
     family_group_cues = {"family", "parivar", "pariwar", "khandan", "cousins", "utsav", "bari"}
     in_work_group = False
     in_family_group = False
+    external_project_group = False
     for cid in dossier.group_chat_ids:
         chat = index.chats[cid]
         if len(chat.participant_ids) > 18:
             continue
         gtoks = set(tokenize(chat.name, drop_stopwords=True))
-        if (seed_org_tokens and (gtoks & seed_org_tokens)) or (gtoks & work_group_cues):
+        prefix, separator, suffix = chat.name.partition(":")
+        prefix_tokens = set(tokenize(prefix, drop_stopwords=True))
+        external_prefix = bool(separator and set(tokenize(suffix)) & seed_org_tokens
+                               and prefix_tokens - seed_org_tokens - {"ad", "ads", "targeting"})
+        if external_prefix or BRIDGE_GROUP_RE.search(chat.name):
+            external_project_group = True
+        if not external_prefix and ((seed_org_tokens and (gtoks & seed_org_tokens)) or (gtoks & work_group_cues)):
             if not external_bridge_client:
                 in_work_group = True
         if gtoks & family_group_cues:
@@ -395,6 +409,8 @@ def _score_dossier_tier0(
         scores["colleague"] += 3.2
     elif in_family_group and not in_work_group:
         scores["relative"] += 3.2
+    if external_project_group and not in_work_group and not (name_tokens & seed_org_tokens):
+        scores["client"] += 4.0
 
     # 2. Conversational lexical & speech-act signals (distinct-term gated so 8 weeks of small-talk never drifts!)
     distinct_strong_staff = {w for w in STAFF_STRONG_WORDS if w in body_tokens}
@@ -480,8 +496,25 @@ def _score_dossier_tier0(
         scores["colleague"] += min(4.5, 1.4 * len(distinct_colleague))
         _collect_ev(COLLEAGUE_CONTEXT_WORDS)
 
+    # Employment paperwork addressed to ME is stronger than generic business
+    # vocabulary, which may also occur in a friend's conversation.
+    if re.search(r"\b(?:my offer letter|my (?:internship|employment)|left the internship|placement season)\b", p_sent_text):
+        scores["colleague"] += 6.0
+    # A customer asks about delivery; ME reports on the service being supplied.
+    # Keep this directional so a vendor advertising campaigns is not a client.
+    if dossier.dm_chat_id:
+        dm_turns = index.by_chat.get(dossier.dm_chat_id, [])
+        customer_check = any(m.sender_id == dossier.person_id and re.search(
+            r"\b(?:how (?:things|it) (?:are|is) going with the campaign|when (?:are you|will you) (?:sharing|share|send) the report)\b",
+            m.body, re.IGNORECASE) for m in dm_turns)
+        service_update = any(m.sender_id == USER_ID and re.search(
+            r"\b(?:our (?:measurement|attribution|analysis|model)|charts attached|campaign results)\b",
+            m.body, re.IGNORECASE) for m in dm_turns)
+        if customer_check and service_update:
+            scores["client"] += 5.0
+
     # Kinship & family cues
-    if any(w in joined_body for w in SPOUSE_WORDS):
+    if any(w in joined_body for w in SPOUSE_WORDS - {"love"}) or re.search(r"\blove\s+you\b", joined_body):
         scores["spouse"] += 3.2
         _collect_ev(SPOUSE_WORDS)
     if any(ch in raw_disp for ch in ("❤️", "♥", "💕", "😘", "💍")) and not in_work_group:
@@ -585,6 +618,11 @@ def _score_dossier_tier0(
         scores["relative"] += 1.5
 
     # Friend signals
+    # Family identity remains relevant when a relative also discusses work.
+    # Avoid allowing a generic business term to erase a shared family surname.
+    if (name_tokens & (index.me_surnames - seed_org_tokens)) and not (name_tokens & (STAFF_ROLE_WORDS | VENDOR_ROLE_WORDS)):
+        scores["relative"] += 4.0
+
     friend_hits = sum(body_tokens[w] for w in FRIEND_WORDS if w in body_tokens)
     if friend_hits >= 2:
         scores["friend"] += min(4.5, 1.0 * friend_hits)
@@ -964,6 +1002,21 @@ def infer_people_circles(
                 rationale="Tier-0 fallback (no LLM endpoint configured)",
                 stage="relationship_tier0_fallback",
             )
+
+    # A dominant home-linked DM is stronger spouse evidence than generic 'love',
+    # sibling-group membership or family members talking about hired staff.
+    if not any(p.source == "seed" and p.circle == "spouse" for p in predictions.values()):
+        ranked_dm = sorted(((d.dm_msg_count, pid) for pid, d in dossiers.items() if d.dm_chat_id), reverse=True)
+        if ranked_dm:
+            count, pid = ranked_dm[0]
+            runner_up = ranked_dm[1][0] if len(ranked_dm) > 1 else 0
+            home_link = any(set(tokenize(name, drop_stopwords=False)) & {"home", "ghar", "kitchen", "carpool", "household"}
+                            for name in dossiers[pid].group_names)
+            explicit_worker = set(tokenize(predictions[pid].name)) & (STAFF_ROLE_WORDS | VENDOR_ROLE_WORDS)
+            eligible_family_ambiguity = predictions[pid].circle in ("friend", "relative", "sibling", "spouse")
+            if count >= 80 and count >= 2.5 * max(1, runner_up) and home_link and not explicit_worker and eligible_family_ambiguity and predictions[pid].source != "seed":
+                predictions[pid].circle = "spouse"
+                predictions[pid].confidence = 0.99
 
     # Step 3: Global Consistency Constraints
     # Constraint A: At most ONE spouse. If multiple unseeded candidates have `spouse`, keep highest-confidence/highest-DM one.

@@ -48,6 +48,7 @@ def parse_natural_language_correction(
 
     # Resolve person by ID, full display name, or base name before "- OrgTag" / "@domain"
     matched_pid: Optional[str] = None
+    matches = []
     for p in output.people:
         base_name = re.split(r"\s*[-–—|(@/]", p.name or "")[0].strip().lower()
         if (
@@ -55,8 +56,19 @@ def parse_natural_language_correction(
             or (p.name and len(p.name) >= 3 and p.name.lower() in low)
             or (len(base_name) >= 3 and re.search(rf"\b{re.escape(base_name)}\b", low))
         ):
-            matched_pid = p.id
-            break
+            # Prefer the longest whole name: 'Sneha Iyer' outranks 'Sneha'.
+            specificity = max((len(name) for name in (p.name.lower(), base_name)
+                               if name and re.search(rf"\b{re.escape(name)}\b", low)), default=0)
+            matches.append((specificity, p.id))
+    exact_ids = [p.id for p in output.people if p.id.lower() in low.split()]
+    if len(exact_ids) == 1:
+        matched_pid = exact_ids[0]
+    elif matches:
+        best = max(score for score, _ in matches)
+        best_ids = [pid for score, pid in matches if score == best]
+        if len(best_ids) != 1:
+            raise ValueError("Ambiguous person correction; use the exact person ID")
+        matched_pid = best_ids[0]
 
     # Pattern 1: Circle correction ("<Name/ID> is [actually] [my] <circle>")
     if matched_pid:
@@ -274,13 +286,19 @@ def apply_corrections(
         for key, spec in raw_loop_corr.items():
             if not isinstance(spec, dict):
                 continue
-            target_loop = None
-            for lp in output.open_loops:
-                if lp.id == key or lp.message_id == key or key.lower() in lp.title.lower():
-                    target_loop = lp
-                    break
-            if target_loop is None:
+            exact = [lp for lp in output.open_loops if lp.id == key or lp.message_id == key]
+            targets = exact or [lp for lp in output.open_loops if key.lower() in lp.title.lower()]
+            if len(targets) > 1:
+                raise ValueError("Ambiguous loop correction; use the exact loop or source message ID")
+            if not targets:
                 continue
+            target_loop = targets[0]
+            if spec.get("status") in ("done", "dropped"):
+                closure_id = spec.get("closure_message_id") or target_loop.closure_message_id
+                closure = index.messages_by_id.get(str(closure_id))
+                origin = index.messages_by_id[target_loop.message_id]
+                if not closure or closure.id == origin.id or closure.ts < origin.ts:
+                    raise ValueError("Closing a corrected loop requires a valid later closure_message_id")
 
             explicitly_corrected_loops.add(target_loop.id)
             target_loop.source = "corrected"
@@ -302,9 +320,6 @@ def apply_corrections(
                     cmid = spec.get("closure_message_id")
                     if cmid and str(cmid) in index.messages_by_id:
                         target_loop.closure_message_id = str(cmid)
-                    elif not target_loop.closure_message_id:
-                        # Use latest message in evidence trail if valid
-                        target_loop.closure_message_id = target_loop.evidence_trail[-1]
                     target_loop.intervention = None
                 applied_notes.append(f"Loop {target_loop.id} status -> {target_loop.status}")
 

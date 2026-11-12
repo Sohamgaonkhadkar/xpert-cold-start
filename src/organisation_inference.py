@@ -239,7 +239,7 @@ def infer_organisations_and_chats(
             s_msgs += " " + " ".join(m.body.lower() for m in index.by_chat.get(dm_cid, [])[:20])
         s_name = people[spid].name.lower()
         s_name_toks = set(tokenize(s_name, drop_stopwords=False))
-        if s_name_toks & {"farm", "farmhouse"}:
+        if s_name_toks & {"farm", "farmhouse", "villa", "bungalow", "cottage"}:
             holiday_staff.append(spid)
         elif s_name_toks & {"home", "ghar"}:
             household_staff.append(spid)
@@ -248,8 +248,8 @@ def infer_organisations_and_chats(
         else:
             household_staff.append(spid)
 
-    # An explicit "<Name> Office"/office-staff cue can anchor a workspace even when no company is seeded.
-    if not work_orgs and not has_workspace_org and office_staff:
+    # A workspace and the business operating there are distinct organisations.
+    if not has_workspace_org and office_staff:
         office_oid = "org_office"
         orgs[office_oid] = OrganisationPrediction(
             id=office_oid,
@@ -554,7 +554,12 @@ def infer_organisations_and_chats(
         # Rule C: Dedicated external client group (`client` present, e.g. "ClientCo x MyOrg") ->
         # tie to `client` person FIRST before internal work org keyword match!
         clients_in_chat = [p for p in non_me if p in people and people[p].circle == "client"]
-        if len(clients_in_chat) == 1:
+        branded_delivery = ":" in low_cname and any(
+            orgs[oid].type == "company"
+            and set(tokenize(low_cname.partition(":")[2])) & org_keywords.get(oid, set())
+            for oid in work_orgs
+        )
+        if len(clients_in_chat) == 1 and not branded_delivery:
             cl_pid = clients_in_chat[0]
             cl_tag = extract_contact_tag(people[cl_pid].name)
             if (cl_tag and cl_tag.lower() in low_cname) or "pilot" in ctoks or "client" in ctoks or "<> " in low_cname or " x " in low_cname:
@@ -586,6 +591,7 @@ def infer_organisations_and_chats(
                 score += 5.5
             if org.type == "residence" and (
                 (ctoks & HOME_GROUP_KEYWORDS)
+                or cid in home_group_candidates
                 or (
                     part_circles["staff"] >= 1
                     and part_circles["colleague"] == 0
@@ -855,7 +861,8 @@ def infer_organisations_and_chats(
                     matched_hol = True
             if not matched_hol:
                 if pid in office_staff and work_orgs:
-                    links_map.setdefault(work_orgs[0], "supports")
+                    workspace = next((oid for oid in work_orgs if orgs[oid].type == "workspace"), work_orgs[0])
+                    links_map.setdefault(workspace, "supports")
                 elif pid in household_staff and home_org_id:
                     links_map.setdefault(home_org_id, "supports")
                 elif society_org_ids and any(

@@ -354,28 +354,23 @@ def load_dataset(input_folder: str | Path) -> DatasetBundle:
     folder = Path(input_folder)
     if not folder.exists():
         raise FileNotFoundError(f"Input folder does not exist: {folder}")
+    for required in ("chats.jsonl", "messages.jsonl"):
+        if not (folder / required).is_file():
+            raise FileNotFoundError(f"Missing required input file: {folder / required}")
 
     chats = _parse_chats(folder / "chats.jsonl")
     messages, tz_suffix = _parse_messages(folder / "messages.jsonl")
     seed = _parse_seed(folder / "seed.json")
 
-    # Synthesize fallback ChatRecord if messages reference a chat missing from chats.jsonl
+    # Chat IDs are defined by the input contract. Inventing absent chats makes
+    # output fail the official referential checks.
     participants_by_chat: Dict[str, set[str]] = {}
     for m in messages:
         if m.chat_id:
             participants_by_chat.setdefault(m.chat_id, set()).add(m.sender_id)
     for cid, parts in sorted(participants_by_chat.items()):
         if cid not in chats:
-            parts_with_me = set(parts) | {USER_ID}
-            non_me = [p for p in parts_with_me if p != USER_ID]
-            chats[cid] = ChatRecord(
-                chat_id=cid,
-                name=cid,
-                is_group=len(non_me) > 1,
-                participant_ids=tuple(
-                    sorted(parts_with_me, key=lambda x: (0 if x == USER_ID else 1, x))
-                ),
-            )
+            raise ValueError("A message references a chat absent from chats.jsonl")
 
     messages_by_id = {m.id: m for m in messages}
     if messages:

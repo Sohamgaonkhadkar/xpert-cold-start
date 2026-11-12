@@ -33,3 +33,19 @@ output.json
 tmp_*/
 *.tmp.json
 Unselected files/
+usage.jsonl
+*.usage.jsonl
+/outputs/
+/runtime/
+/private-reports/
+*.response.json
+*.pem
+credentials*
+.xpert-*.tmp
+*.env
+/out*.json
+/telemetry*.json
+/predictions/
+
+# Generated mock benchmark snapshot, not official performance evidence
+/metrics/experiment_results.json

@@ -116,7 +116,7 @@ BARE_ACK_RE = re.compile(
 
 # Explicit cancellation / drop markers
 CANCELLATION_RE = re.compile(
-    r"\b(cancel\s+this|cancelled|canceled|no\s+longer\s+needed|not\s+needed\s+anymore|"
+    r"\b(cancel\s+(?:this|the\s+(?:entire\s+)?(?:task\s+)?list)|cancelled|canceled|no\s+longer\s+needed|not\s+needed\s+anymore|"
     r"drop\s+this|dropping\s+this|forget\s+it|never\s+mind|nevermind|ignore\s+previous|hold\s+off\s+indefinitely|"
     r"skip\s+this|don't\s+send|dont\s+send|don't\s+book|dont\s+book|"
     r"rehne\s+do|rehnedo|mat\s+karo|mat\s+bhejo|zaroorat\s+nahi|jarurat\s+nahi|cancel\s+kar\s+do|"
@@ -201,6 +201,16 @@ Given an originating task message and its chronological cross-chat evidence trai
 
 Return JSON:
 {"status": "open|done|dropped", "closure_message_id": "<msg_id>|null", "owner": "ME|<person_id>", "due_date": "YYYY-MM-DD|null", "confidence": 0.0}"""
+
+
+def _covers_task_bundle(cand: LoopCandidate, body: str) -> bool:
+    """A statement about one item cannot resolve a bundled list of actions."""
+    return not cand.is_task_list or bool(re.search(
+        r"\b(?:everything|all\s+(?:of\s+)?(?:the\s+)?(?:tasks?|items?|chores?|work|list)|"
+        r"all\s+(?:done|completed|finished|sorted)|every\s+(?:task|item|chore)|"
+        r"(?:entire|whole)\s+(?:task\s+)?(?:list|set|job)|(?:this|the)\s+(?:task\s+)?list)\b",
+        body, re.IGNORECASE
+    ))
 
 
 def reconcile_open_loops(
@@ -292,8 +302,14 @@ def reconcile_open_loops(
                     continue
                 c_raw = c_msg.body.strip()
                 c_norm = normalize_indic_for_matching(c_raw) if not c_raw.isascii() else c_raw
+                if not _covers_task_bundle(cand, c_norm):
+                    continue
                 # Hard post-LLM safety guards: never let a small LLM hallucinate `done` on bare acks, deferrals, or partial progress!
                 if llm_status == "done":
+                    if BARE_ACK_RE.match(c_raw) or BARE_ACK_RE.match(c_norm) or is_pure_indic_bare_ack(c_raw):
+                        quoted = index.messages_by_id.get(c_msg.quoted_id)
+                        if not quoted or not COMPLETION_CHECK_QUESTION_RE.search(quoted.body) or c_msg.sender_id != pred.owner:
+                            continue
                     if (
                         c_msg.quoted_id == cand.origin_msg.id
                         and (BARE_ACK_RE.match(c_raw) or BARE_ACK_RE.match(c_norm) or is_pure_indic_bare_ack(c_raw))
@@ -463,6 +479,7 @@ def _evaluate_trail_deterministic(
             allow_asr_fuzzy=(cand.origin_msg.kind == "voice_transcript" or m.kind == "voice_transcript"),
         )
         m_toks = set(m_tok_list)
+        covers_bundle = _covers_task_bundle(cand, body)
         is_direct_reply = m.quoted_id is not None and m.quoted_id in thread_ids
         # Never treat a reply to an unrelated message as `same_chat_close`!
         quotes_unrelated = m.quoted_id is not None and m.quoted_id not in thread_ids
@@ -485,6 +502,22 @@ def _evaluate_trail_deterministic(
 
         is_authorized_actor = m.sender_id in {eff_owner, cand.origin_msg.sender_id, USER_ID}
 
+        # Typed delivery: a phone number or map pin can fulfil the corresponding
+        # request without the word 'sent'. Require the owner, same DM, prompt
+        # response and exact deliverable type; unrelated links remain evidence only.
+        if (not cand.is_task_list and same_chat_close and m_is_dm and m.sender_id == eff_owner and not quotes_unrelated
+                and (m.ts - cand.origin_msg.ts) <= timedelta(hours=2)
+                and not re.search(r"\b(?:not|wrong|incorrect|don't|do not|will|later|tomorrow)\b", body, re.IGNORECASE)):
+            phone_delivery = bool(origin_all_toks & {"number", "contact", "phone"}) and bool(re.search(r"(?<!\d)\d{10,13}(?!\d)", body))
+            address_delivery = bool(origin_all_toks & {"address", "location"}) and bool(re.search(r"https?://(?:maps\.app\.goo\.gl/|(?:www\.)?google\.[^/]+/maps)", body))
+            purchase_delivery = bool(origin_all_toks & {"buy", "purchase", "order"}) and bool(re.match(r"^(?:i (?:have |just )?)?(?:bought|purchased|ordered)\b", body, re.IGNORECASE)) and token_overlap >= 1
+            email_delivery = bool(origin_all_toks & {"link", "document", "report", "invoice", "file"}) and bool(re.fullmatch(
+                r"(?:it(?:'s| is|s)?|the (?:link|document|report|invoice|file) is)\s+(?:already\s+)?in\s+(?:your|ur)\s+(?:email|inbox)[.!\s]*",
+                body, re.IGNORECASE))
+            if phone_delivery or address_delivery or purchase_delivery or email_delivery:
+                status, closure_id, confidence = "done", m.id, 0.89
+                continue
+
         # 1. Check for failed/reopened completion AFTER a prior tentative done!
         if status == "done" and FAILURE_REOPEN_RE.search(body) and (is_authorized_actor or is_direct_reply):
             status = "open"
@@ -497,11 +530,11 @@ def _evaluate_trail_deterministic(
             continue
 
         # 2. Check for Ownership Transfer / Delegation (Adversarial #3, #7)
-        if m.sender_id != USER_ID and TAKEOVER_SELF_RE.search(body):
+        if covers_bundle and m.sender_id != USER_ID and TAKEOVER_SELF_RE.search(body):
             if m_is_dm or is_direct_reply or token_overlap >= 1:
                 eff_owner = m.sender_id
                 confidence = 0.85
-        elif m.sender_id == USER_ID and DELEGATE_DIRECTIVE_RE.search(body):
+        elif covers_bundle and m.sender_id == USER_ID and DELEGATE_DIRECTIVE_RE.search(body):
             chat = index.chats.get(m.chat_id)
             parts = chat.participant_ids if chat else ()
             for p in parts:
@@ -517,7 +550,7 @@ def _evaluate_trail_deterministic(
                         break
 
         # 3. Check for Explicit Cancellation / Drop (Adversarial #8) — guarded against bystander noise in groups!
-        if CANCELLATION_RE.search(body) and (
+        if covers_bundle and CANCELLATION_RE.search(body) and (
             is_direct_reply or m_is_dm or (is_authorized_actor and token_overlap >= 1) or token_overlap >= 2
         ):
             status = "dropped"
@@ -540,13 +573,14 @@ def _evaluate_trail_deterministic(
 
         # 5. Track Completion-Check Questions ("Did you send it?", "Ho gaya kya?")
         if COMPLETION_CHECK_QUESTION_RE.search(body):
-            pending_completion_check_ids.add(m.id)
+            if covers_bundle:
+                pending_completion_check_ids.add(m.id)
             continue
 
         # 6. GUARD 1: Bare "Ok" / "Sure" / "Haan" / "👍" (including native Devanagari/Bengali "हाँ", "ठीक है", "হ্যাঁ")
         if BARE_ACK_RE.match(raw_body) or BARE_ACK_RE.match(body) or is_pure_indic_bare_ack(raw_body):
             # ONLY counts as `done` if replying to a completion-check question!
-            if m.quoted_id in pending_completion_check_ids and AFFIRMATIVE_CONFIRM_RE.search(body):
+            if m.sender_id == eff_owner and m.quoted_id in pending_completion_check_ids and AFFIRMATIVE_CONFIRM_RE.search(body):
                 status = "done"
                 closure_id = m.id
                 confidence = 0.88
@@ -565,12 +599,24 @@ def _evaluate_trail_deterministic(
                 eff_due = inh_due
 
         # 7. Substantive answer to an open `question` loop
+        # Completing or delivering one list item does not complete the bundle.
+        if not covers_bundle:
+            continue
+        origin_turn = index.enriched_by_id.get(cand.origin_msg.id)
+        response_turn = index.enriched_by_id.get(m.id)
+        adjacent_answer = (
+            m.chat_id == cand.origin_msg.chat_id
+            and origin_turn is not None and response_turn is not None
+            and response_turn.chat_index == origin_turn.chat_index + 1
+            and (m.ts - cand.origin_msg.ts) <= timedelta(minutes=10)
+        )
         if (
             cand.loop_type == "question"
             and status == "open"
             and m.sender_id == eff_owner
             and (m_is_dm or is_direct_reply or token_overlap >= 1)
             and (m.quoted_id == cand.origin_msg.id or same_chat_close)
+            and (is_direct_reply or token_overlap >= 1 or adjacent_answer)
             and not DEFER_ANSWER_RE.search(body)
             and "?" not in body
             and len(m_toks) >= 2
@@ -713,6 +759,20 @@ def _evaluate_trail_deterministic(
                 or DEFER_ANSWER_RE.search(nb)
                 or POSTPONE_RE.search(nb)
             ):
+                continue
+            overlap = _compute_token_overlap(
+                tokenize(rb, drop_stopwords=True), cand.signature_tokens,
+                allow_asr_fuzzy=(cand.origin_msg.kind == "voice_transcript" or m.kind == "voice_transcript"),
+            )
+            origin_turn = index.enriched_by_id.get(cand.origin_msg.id)
+            response_turn = index.enriched_by_id.get(m.id)
+            adjacent = (
+                m.chat_id == cand.origin_msg.chat_id
+                and origin_turn is not None and response_turn is not None
+                and response_turn.chat_index == origin_turn.chat_index + 1
+                and (m.ts - cand.origin_msg.ts) <= timedelta(minutes=10)
+            )
+            if not (m.quoted_id in thread_ids or overlap >= 1 or adjacent or SHORT_DM_COMPLETION_RE.match(rb)):
                 continue
             has_unguarded_owner_turn = True
             break

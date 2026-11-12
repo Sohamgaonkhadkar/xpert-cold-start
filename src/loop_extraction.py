@@ -46,7 +46,7 @@ WEEKDAY_MAP: Dict[str, int] = {
 
 # Self-commitment patterns (speaker promises action)
 SELF_COMMIT_RE = re.compile(
-    r"\b(i will|i'll|ill\b|i am going to|i'm going to|i'm on it|i am on it|on it\b|let me|allow me to|will send|will share|"
+    r"\b(i will|i'll|ill\b|we will|we'll|i am going to|i'm going to|i'm on it|i am on it|on it\b|let me|allow me to|will complete|will send|will share|"
     r"will check|will call|will book|will pay|will transfer|will update|will review|will do|"
     r"sending by|sharing by|main\s+(?:kal\s+|aaj\s+)?[a-z]+\s+(?:dunga|dungi|karunga|karungi|leta|leti|bhejta|bhejti)|"
     r"kar\s+dunga|kar\s+dungi|kar\s+lunga|kar\s+lungi|le\s+lunga|le\s+lungi|pick\s+kar\s+lunga|drop\s+kar\s+dunga|"
@@ -58,7 +58,7 @@ SELF_COMMIT_RE = re.compile(
 
 # Request / directive patterns (speaker asks addressee to act)
 DIRECTIVE_REQUEST_RE = re.compile(
-    r"\b(please\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can you|could you|would you|need you to|"
+    r"\b(please\s+[a-z]+|pl\s+[a-z]+|pls\s+[a-z]+|plz\s+[a-z]+|can\s+(?:you|u)|could\s+(?:you|u)|would\s+(?:you|u)|need (?:you to|your help to)|"
     r"don't forget to|dont forget to|remember to|make sure to|kindly\s+[a-z]+|"
     r"let me know|lmk|batao|batana|bata dena|tell me|update me|keep me posted|inform me|"
     r"bhej\s+dena|bhej\s+do|kar\s+dena|kar\s+do|de\s+dena|le\s+aana|chod\s+dena|chhor\s+dena|"
@@ -90,7 +90,7 @@ DEADLINE_CUE_RE = re.compile(
 
 # Decision / open question patterns
 QUESTION_CUE_RE = re.compile(
-    r"(\?\s*$|\b(?:should we|shall we|which one|what should|do you want|can we confirm|any\s+thoughts\s+on|"
+    r"(\?\s*$|\b(?:should (?:we|i)|shall we|which one|what should|do you want|can we|any\s+thoughts\s+on|"
     r"approve|konsa|kaunsa|kab\s+tak|kab\s+karein|kya\s+karein|kobe\s+|kon\s+ta)\b)",
     re.IGNORECASE,
 )
@@ -316,6 +316,7 @@ class LoopCandidate:
     involved_people: Set[str] = field(default_factory=set)
     related_msg_ids: List[str] = field(default_factory=list)
     confidence: float = 0.65
+    is_task_list: bool = False
 
 
 def _clean_loop_title(body: str, quoted_body: Optional[str] = None) -> str:
@@ -360,19 +361,13 @@ def extract_open_loop_candidates(
     ledger: EvidenceLedger,
 ) -> List[LoopCandidate]:
     """Discover, normalize, and deduplicate candidate open loops across chats."""
-    span_days = (index.anchor_ts - index.min_ts).days
-    # Official rule: on multi-month hidden data (>16 days), open loops are scored on the last two weeks;
-    # on <=16-day dev/test sets, all messages fall within the active window.
-    scoring_cutoff = (
-        index.anchor_ts - timedelta(days=14)
-        if span_days > 16
-        else index.min_ts - timedelta(seconds=1)
-    )
+    # The official checker alone knows loops_scored_from. Enumerate all loops;
+    # earlier context can identify commitments repeated in the scoring window.
+    scoring_cutoff = index.min_ts - timedelta(seconds=1)
 
     raw_candidates: List[LoopCandidate] = []
     consumed_msg_ids: Set[str] = set()
 
-    pre_cutoff_digit_floor = scoring_cutoff - timedelta(days=8)
 
     for msg in index.messages:
         if msg.id in consumed_msg_ids:
@@ -385,15 +380,7 @@ def extract_open_loop_candidates(
         if BIRTHDAY_WISH_RE.match(match_body) and not BIRTHDAY_ACTION_RE.search(match_body):
             continue
 
-        # Fast pre-cutoff filter: messages >8 days before scoring_cutoff can ONLY carry over via an explicit numeric date!
-        if msg.ts < scoring_cutoff:
-            if msg.ts < pre_cutoff_digit_floor and not any(ch.isdigit() for ch in match_body):
-                continue
-            due_date = resolve_due_date(match_body, msg.ts)
-            if not due_date or due_date < scoring_cutoff.date().isoformat():
-                continue
-        else:
-            due_date = None  # Lazily compute only if salience check passes or document/image_caption!
+        due_date = None  # Lazily resolve after salience checks.
 
         et = index.enriched_by_id.get(msg.id)
         q_msg = et.quoted_message if et else None
@@ -403,10 +390,55 @@ def extract_open_loop_candidates(
 
         has_self_commit = bool(SELF_COMMIT_RE.search(match_body))
         has_directive = bool(DIRECTIVE_REQUEST_RE.search(match_body))
+        # Unprefixed imperatives are common in personal exports. Keep
+        # this anchored to action verbs rather than matching nouns such as 'fan'.
+        if re.match(
+            r"^(?:text|order|buy|send|share|book|pay|bring|call)\s+(?:me\s+|him\b|her\b|your\s+|the\s+|a\s+|an\s+|\d)",
+            match_body, re.IGNORECASE,
+        ):
+            has_directive = True
+        # Informal messages often omit the auxiliary in a concrete proposal or
+        # promise. Require an action, rather than turning every 'let's' into work.
+        if re.search(r"\blet['’]?s\s+(?:send|share|fix|schedule|book|arrange|meet|call)\b", match_body, re.IGNORECASE):
+            has_self_commit = True
+        if re.match(r"^(?:reverting|sending|sharing)\s+(?:tomorrow|tonight|by\b|on\s+(?:mon|tue|wed|thu|fri))", match_body, re.IGNORECASE):
+            has_self_commit = True
         has_question = bool(QUESTION_CUE_RE.search(match_body))
+        # A proposed meeting remains a decision even when an informal Hinglish
+        # message omits its question mark.
+        if re.search(r"\b(?:meet|meeting|call)\s+(?:pe|par)\s+karte\s+(?:hai|hain)\b", match_body, re.IGNORECASE):
+            has_question = True
+        # A task-list heading plus multiple numbered actions is a bundled request.
+        # Names, shopping inventories and event attendance lists alone are not tasks.
+        list_actions = re.findall(
+            r"(?m)^\s*\d+[.)]\s*[\u2060\u200b*]*(?:regular\s+)?(?:clean(?:ing)?|vacuum|wash|repair|replace|install|submit|send|pay|book|check)\b",
+            match_body, re.IGNORECASE,
+        )
+        is_task_list = len(list_actions) >= 2 and bool(re.search(r"\b(?:work|tasks?|to[ -]?do)\b", match_body.splitlines()[0], re.IGNORECASE))
+        if is_task_list:
+            if re.match(r"^(?:my|our)\s+(?:work|tasks?|to[ -]?do)\b", match_body, re.IGNORECASE):
+                has_self_commit = True
+            else:
+                has_directive = True
         has_indirect_ob = bool(INDIRECT_OBLIGATION_RE.search(match_body)) and bool(
             TIME_HORIZON_ANCHOR_RE.search(match_body)
         )
+        if re.search(r"\b(?:i |we )?need\s+to\s+(?:ask|discuss|find|hire|book|arrange|submit|renew|pay)\b", match_body, re.IGNORECASE) and not re.search(
+            r"\b(?:no|not|don't|dont|do not|doesn't|does not)\s+need\b", match_body, re.IGNORECASE
+        ):
+            has_indirect_ob = True
+        if re.search(r"\byou can go ahead and (?:order|book|buy|send|submit|pay)\b", match_body, re.IGNORECASE):
+            has_directive = True
+        if re.search(r"\bwe need (?:the |your |a )?(?:[a-z]+\s+){0,3}(?:copy|document|approval|signature|invoice|report)\s+to\s+(?:raise|submit|complete|process|finalize|finalise)\b", match_body, re.IGNORECASE):
+            has_directive = True
+        if re.search(r"\bi need\s+(?:a |an )?(?:good |new )?(?:teacher|tutor|driver|plumber|electrician|nanny)\b", match_body, re.IGNORECASE):
+            has_indirect_ob = True
+        if re.match(r"^(?:invite|invitation|payment|booking|reservation|appointment)\s+to be\s+(?:made|sent|booked|paid)\b", match_body, re.IGNORECASE):
+            has_indirect_ob = True
+        if (not chat or not chat.is_group) and re.search(
+            r"\b(?:measurements|dimensions|documents|signature|approval)\s+(?:are )?required\s+for\b", match_body, re.IGNORECASE
+        ):
+            has_directive = True
         sender_circle = people[msg.sender_id].circle if msg.sender_id in people else "friend"
         has_implicit_household = (
             msg.sender_id != USER_ID
@@ -564,6 +596,15 @@ def extract_open_loop_candidates(
                     conf = 0.68
             elif has_self_commit and not has_directive:
                 # P promises to send/do something -> followup owned by P!
+                if chat and chat.is_group and len(participants) > 8 and not me_explicitly_named:
+                    prior_me_request = bool(et and any(
+                        pm.sender_id == USER_ID
+                        and (msg.ts - pm.ts) <= timedelta(minutes=30)
+                        and (DIRECTIVE_REQUEST_RE.search(pm.body) or QUESTION_CUE_RE.search(pm.body))
+                        for pm in index.by_chat.get(msg.chat_id, [])[max(0, et.chat_index - 3):et.chat_index]
+                    ))
+                    if not prior_me_request:
+                        continue
                 loop_type = "followup"
                 owner = sender_pid
                 conf = 0.83
@@ -591,6 +632,16 @@ def extract_open_loop_candidates(
                         if ACCEPTANCE_REPLY_RE.search(rm.body):
                             claimer = rm.sender_id
                             break
+                    household_context = len(participants) <= 6 and sender_circle in ("spouse", "parent", "staff")
+                    local_me_acceptance = bool(et and any(
+                        rm.sender_id == USER_ID and ACCEPTANCE_REPLY_RE.search(rm.body)
+                        and (rm.ts - msg.ts) <= timedelta(minutes=30)
+                        for rm in index.by_chat.get(msg.chat_id, [])[et.chat_index + 1:et.chat_index + 3]
+                    ))
+                    if not claimer and not household_context and not local_me_acceptance:
+                        # Membership alone does not make ME the addressee of an
+                        # operational/broadcast request in somebody else's thread.
+                        continue
                     owner = claimer or USER_ID
                     loop_type = "commitment" if owner == USER_ID else "followup"
                     conf = 0.70
@@ -706,6 +757,7 @@ def extract_open_loop_candidates(
                 involved_people=involved,
                 related_msg_ids=[msg.id],
                 confidence=conf,
+                is_task_list=is_task_list,
             )
         )
 
@@ -795,6 +847,10 @@ def _deduplicate_candidates(
     for cand in candidates:
         merged_into: Optional[LoopCandidate] = None
         for prev in kept:
+            # A bundle of actions is not a restatement of one earlier task merely
+            # because both mention a room, supplier or other rare entity.
+            if cand.is_task_list != prev.is_task_list:
+                continue
             # Never merge candidates separated by > 10 days
             if abs((cand.origin_msg.ts - prev.origin_msg.ts).total_seconds()) > 10 * 86400:
                 continue

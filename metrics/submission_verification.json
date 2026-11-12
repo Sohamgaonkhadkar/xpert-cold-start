@@ -1,0 +1,233 @@
+{
+  "date": "2026-11-12",
+  "base_commit": "006504c42035cb51ec559d45c5b1eec307982c10",
+  "inference_source_sha256": "3c78f171263868580b3f574467b2eb00e2dcafb98f44638c3ba71fe87b54268e",
+  "graded_profile": "deterministic",
+  "hybrid_opt_in": "--mode hybrid",
+  "compatibility_model": "openai/gpt-4.1-mini",
+  "model_catalogue_verified": true,
+  "official_deadline_ist": "2026-11-12T23:59:00+05:30",
+  "tests_passed": 125,
+  "correction_demo_passed": true,
+  "official_starter_parity": [
+    {
+      "path": "check.py",
+      "matches": true,
+      "normalized_sha256": "751736291b5e0f9431e627a03efb9f3d9a9eb3a82d7cdf19da8e46bd4359c76b"
+    },
+    {
+      "path": "example/answers/answers.json",
+      "matches": true,
+      "normalized_sha256": "ea7e6018ac155c0a6211ffb404db4805307a27402e684fb3cd8d4d77696ccc0e"
+    },
+    {
+      "path": "example/chats.jsonl",
+      "matches": true,
+      "normalized_sha256": "f78e2acc728a2e573adfe496201fd1ff5c2f1f6ff3f923bff94887654f756f9d"
+    },
+    {
+      "path": "example/messages.jsonl",
+      "matches": true,
+      "normalized_sha256": "2aef1df294e4d06c7e27d1ffe08ee865be65b10a659e02b0389dfee1a7ef0915"
+    },
+    {
+      "path": "example/seed.json",
+      "matches": true,
+      "normalized_sha256": "fee3a0a567504e950d1153b6b26859099dfd5e535892161019d35f9857e8b01b"
+    },
+    {
+      "path": "schema.json",
+      "matches": true,
+      "normalized_sha256": "9618cd635f2153f285207a829539548b3c33a1dad7983cb63f90d9f9477749da"
+    }
+  ],
+  "security_history_scan": {
+    "unique_blobs_checked": 130,
+    "credential_pattern_findings": [],
+    "private_path_findings": []
+  },
+  "official_dev": {
+    "messages": 4502,
+    "chats": 138,
+    "validation_errors": [],
+    "scores": {
+      "circles": 0.7560975609756098,
+      "organisations": 0.4619755244755245,
+      "chats": 0.7926829268292683,
+      "goals": null,
+      "loops_found": 0.28409090909090906,
+      "loops_closed": 0.4189189189189189,
+      "help": null
+    },
+    "points": {
+      "circles": 9.073170731707318,
+      "organisations": 3.695804195804196,
+      "chats": 6.341463414634147,
+      "goals": null,
+      "loops_found": 3.9772727272727266,
+      "loops_closed": 5.864864864864865,
+      "help": null
+    },
+    "total": 28.952575934283253,
+    "possible": 56,
+    "loops": {
+      "predicted": 278,
+      "actual": 74,
+      "matched": 50,
+      "precision": 0.17985611510791366,
+      "recall": 0.6756756756756757,
+      "f1": 0.28409090909090906,
+      "false_done": 0,
+      "missed_completions_matched": 19,
+      "missed_completions_including_undiscovered": 41,
+      "false_dropped": 0,
+      "incorrect_owner_matched": 6,
+      "incorrect_intervention_on_leave": 0,
+      "interventions_labelled": 0
+    },
+    "circle_confusions": {
+      "relative -> friend": 1,
+      "staff -> friend": 1,
+      "relative -> colleague": 1,
+      "partner -> colleague": 1,
+      "colleague -> friend": 2,
+      "sibling -> relative": 1,
+      "client -> friend": 1,
+      "parent -> relative": 1,
+      "partner -> friend": 1
+    },
+    "goals_labelled": false
+  },
+  "dev_telemetry": {
+    "model_used": "deterministic-tier0",
+    "total_messages": 4502,
+    "llm_calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0,
+    "estimated_cost_usd": 0.0,
+    "dollars_per_1k_messages": 0.0,
+    "stage_timings_sec": {
+      "01_ingest_and_index": 0.1459,
+      "02_relationship_inference": 0.2103,
+      "03_organisation_and_chat_inference": 0.0191,
+      "04_goal_extraction": 0.0763,
+      "05_loop_discovery_and_reconciliation": 5.7306,
+      "06_intervention_policy": 0.0238,
+      "07_corrections": 0.0,
+      "08_validation_and_serialization": 0.0396,
+      "total_sec": 6.2456
+    },
+    "stage_tokens": {},
+    "usage_details": {
+      "model": "deterministic-tier0",
+      "calls": 0,
+      "cache_hits": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "stages": {},
+      "usage_source": "provider_or_estimate",
+      "http_requests": 0,
+      "failed_attempts": 0,
+      "budget_skips": 0,
+      "estimated_usage_calls": 0,
+      "provider_cost_usd": null,
+      "provider_cost_calls": 0,
+      "failure_types": {}
+    },
+    "evidence_summary": {
+      "seed": 12,
+      "user_correction": 0,
+      "explicit": 663,
+      "contextual": 458,
+      "conflicting": 0,
+      "insufficient": 101
+    },
+    "validation_repairs": [],
+    "counts": {
+      "people": 286,
+      "organisations": 6,
+      "chats": 138,
+      "goals": 2,
+      "open_loops": 278,
+      "open_loops_open": 250,
+      "open_loops_done": 28,
+      "open_loops_dropped": 0
+    }
+  },
+  "dense_synthetic_runtime": {
+    "messages": 20000,
+    "chats": 320,
+    "designed_tasks": 5000,
+    "discovered_completed": 5000,
+    "validation_errors": 0,
+    "telemetry": {
+      "model_used": "deterministic-tier0",
+      "total_messages": 20000,
+      "llm_calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_tokens": 0,
+      "estimated_cost_usd": 0.0,
+      "dollars_per_1k_messages": 0.0,
+      "stage_timings_sec": {
+        "01_ingest_and_index": 0.3103,
+        "02_relationship_inference": 0.237,
+        "03_organisation_and_chat_inference": 0.0018,
+        "04_goal_extraction": 0.0884,
+        "05_loop_discovery_and_reconciliation": 62.9445,
+        "06_intervention_policy": 0.0003,
+        "07_corrections": 0.0,
+        "08_validation_and_serialization": 0.2973,
+        "total_sec": 63.8797
+      },
+      "stage_tokens": {},
+      "usage_details": {
+        "model": "deterministic-tier0",
+        "calls": 0,
+        "cache_hits": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stages": {},
+        "usage_source": "provider_or_estimate",
+        "http_requests": 0,
+        "failed_attempts": 0,
+        "budget_skips": 0,
+        "estimated_usage_calls": 0,
+        "provider_cost_usd": null,
+        "provider_cost_calls": 0,
+        "failure_types": {}
+      },
+      "evidence_summary": {
+        "seed": 0,
+        "user_correction": 0,
+        "explicit": 5320,
+        "contextual": 5240,
+        "conflicting": 0,
+        "insufficient": 80
+      },
+      "validation_repairs": [],
+      "counts": {
+        "people": 320,
+        "organisations": 0,
+        "chats": 320,
+        "goals": 0,
+        "open_loops": 5000,
+        "open_loops_open": 0,
+        "open_loops_done": 5000,
+        "open_loops_dropped": 0
+      }
+    }
+  },
+  "limitations": [
+    "Iteratively tuned dev result, not held-out accuracy",
+    "Goals/interventions unlabelled in dev",
+    "Optional hybrid quality not verified for final source",
+    "AI records are genuine but incomplete; original Arena transcript unavailable",
+    "Pattern-based history scan cannot prove absence of all possible secrets"
+  ]
+}

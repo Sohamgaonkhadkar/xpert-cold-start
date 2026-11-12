@@ -1,0 +1,499 @@
+{
+  "date": "2026-11-12",
+  "dataset": "official dev",
+  "starting_commit": "bb8b3e83edaffc335a2fc488a3d5ee4a567e4748",
+  "retained_stage": "nov12-retained",
+  "tests_passed": 114,
+  "runs": [
+    {
+      "stage": "nov12-action-structures",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.2792022792022792,
+        "loops_closed": 0.40540540540540543,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9088319088319086,
+        "loops_closed": 5.675675675675676,
+        "help": null
+      },
+      "total": 28.694945926653247,
+      "possible": 56,
+      "loops": {
+        "predicted": 277,
+        "actual": 74,
+        "matched": 49,
+        "precision": 0.17689530685920576,
+        "recall": 0.6621621621621622,
+        "f1": 0.2792022792022792,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1458,
+          "02_relationship_inference": 0.2073,
+          "03_organisation_and_chat_inference": 0.0142,
+          "04_goal_extraction": 0.0465,
+          "05_loop_discovery_and_reconciliation": 4.7633,
+          "06_intervention_policy": 0.0799,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0449,
+          "total_sec": 5.3021
+        }
+      }
+    },
+    {
+      "stage": "nov12-list-sources",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.28409090909090906,
+        "loops_closed": 0.4189189189189189,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9772727272727266,
+        "loops_closed": 5.864864864864865,
+        "help": null
+      },
+      "total": 28.952575934283253,
+      "possible": 56,
+      "loops": {
+        "predicted": 278,
+        "actual": 74,
+        "matched": 50,
+        "precision": 0.17985611510791366,
+        "recall": 0.6756756756756757,
+        "f1": 0.28409090909090906,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1034,
+          "02_relationship_inference": 0.1372,
+          "03_organisation_and_chat_inference": 0.012,
+          "04_goal_extraction": 0.0453,
+          "05_loop_discovery_and_reconciliation": 4.3801,
+          "06_intervention_policy": 0.025,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0542,
+          "total_sec": 4.7573
+        }
+      }
+    },
+    {
+      "stage": "nov12-bundle-guard",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.28409090909090906,
+        "loops_closed": 0.4189189189189189,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9772727272727266,
+        "loops_closed": 5.864864864864865,
+        "help": null
+      },
+      "total": 28.952575934283253,
+      "possible": 56,
+      "loops": {
+        "predicted": 278,
+        "actual": 74,
+        "matched": 50,
+        "precision": 0.17985611510791366,
+        "recall": 0.6756756756756757,
+        "f1": 0.28409090909090906,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1464,
+          "02_relationship_inference": 0.1786,
+          "03_organisation_and_chat_inference": 0.0151,
+          "04_goal_extraction": 0.0488,
+          "05_loop_discovery_and_reconciliation": 5.3945,
+          "06_intervention_policy": 0.0233,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0437,
+          "total_sec": 5.8504
+        }
+      }
+    },
+    {
+      "stage": "nov12-family-guard",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.28409090909090906,
+        "loops_closed": 0.4189189189189189,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9772727272727266,
+        "loops_closed": 5.864864864864865,
+        "help": null
+      },
+      "total": 28.952575934283253,
+      "possible": 56,
+      "loops": {
+        "predicted": 278,
+        "actual": 74,
+        "matched": 50,
+        "precision": 0.17985611510791366,
+        "recall": 0.6756756756756757,
+        "f1": 0.28409090909090906,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1194,
+          "02_relationship_inference": 0.1463,
+          "03_organisation_and_chat_inference": 0.0131,
+          "04_goal_extraction": 0.047,
+          "05_loop_discovery_and_reconciliation": 5.4367,
+          "06_intervention_policy": 0.0239,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0412,
+          "total_sec": 5.8276
+        }
+      }
+    },
+    {
+      "stage": "nov12-final",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.28409090909090906,
+        "loops_closed": 0.4189189189189189,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9772727272727266,
+        "loops_closed": 5.864864864864865,
+        "help": null
+      },
+      "total": 28.952575934283253,
+      "possible": 56,
+      "loops": {
+        "predicted": 278,
+        "actual": 74,
+        "matched": 50,
+        "precision": 0.17985611510791366,
+        "recall": 0.6756756756756757,
+        "f1": 0.28409090909090906,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1463,
+          "02_relationship_inference": 0.1518,
+          "03_organisation_and_chat_inference": 0.0127,
+          "04_goal_extraction": 0.0481,
+          "05_loop_discovery_and_reconciliation": 4.8921,
+          "06_intervention_policy": 0.0163,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0261,
+          "total_sec": 5.2934
+        }
+      }
+    },
+    {
+      "stage": "nov12-verified",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.28409090909090906,
+        "loops_closed": 0.4189189189189189,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9772727272727266,
+        "loops_closed": 5.864864864864865,
+        "help": null
+      },
+      "total": 28.952575934283253,
+      "possible": 56,
+      "loops": {
+        "predicted": 278,
+        "actual": 74,
+        "matched": 50,
+        "precision": 0.17985611510791366,
+        "recall": 0.6756756756756757,
+        "f1": 0.28409090909090906,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1425,
+          "02_relationship_inference": 0.165,
+          "03_organisation_and_chat_inference": 0.0135,
+          "04_goal_extraction": 0.0489,
+          "05_loop_discovery_and_reconciliation": 5.2195,
+          "06_intervention_policy": 0.0185,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0321,
+          "total_sec": 5.6401
+        }
+      }
+    },
+    {
+      "stage": "nov12-retained",
+      "messages": 4502,
+      "chats": 138,
+      "validation_errors": [],
+      "scores": {
+        "circles": 0.7560975609756098,
+        "organisations": 0.4619755244755245,
+        "chats": 0.7926829268292683,
+        "goals": null,
+        "loops_found": 0.28409090909090906,
+        "loops_closed": 0.4189189189189189,
+        "help": null
+      },
+      "points": {
+        "circles": 9.073170731707318,
+        "organisations": 3.695804195804196,
+        "chats": 6.341463414634147,
+        "goals": null,
+        "loops_found": 3.9772727272727266,
+        "loops_closed": 5.864864864864865,
+        "help": null
+      },
+      "total": 28.952575934283253,
+      "possible": 56,
+      "loops": {
+        "predicted": 278,
+        "actual": 74,
+        "matched": 50,
+        "precision": 0.17985611510791366,
+        "recall": 0.6756756756756757,
+        "f1": 0.28409090909090906,
+        "false_done": 0,
+        "missed_completions_matched": 19,
+        "missed_completions_including_undiscovered": 41,
+        "false_dropped": 0,
+        "incorrect_owner_matched": 6,
+        "incorrect_intervention_on_leave": 0,
+        "interventions_labelled": 0
+      },
+      "circle_confusions": {
+        "relative -> friend": 1,
+        "staff -> friend": 1,
+        "relative -> colleague": 1,
+        "partner -> colleague": 1,
+        "colleague -> friend": 2,
+        "sibling -> relative": 1,
+        "client -> friend": 1,
+        "parent -> relative": 1,
+        "partner -> friend": 1
+      },
+      "goals_labelled": false,
+      "telemetry": {
+        "model_used": "deterministic-tier0",
+        "llm_calls": 0,
+        "total_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "stage_timings_sec": {
+          "01_ingest_and_index": 0.1267,
+          "02_relationship_inference": 0.1523,
+          "03_organisation_and_chat_inference": 0.0111,
+          "04_goal_extraction": 0.0424,
+          "05_loop_discovery_and_reconciliation": 4.5365,
+          "06_intervention_policy": 0.0203,
+          "07_corrections": 0.0,
+          "08_validation_and_serialization": 0.0394,
+          "total_sec": 4.9289
+        }
+      }
+    }
+  ]
+}
