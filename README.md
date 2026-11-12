@@ -2,7 +2,7 @@
 
 **Turn WhatsApp conversation history into an evidence-grounded picture of a person's relationships, organisations, goals and unfinished work.**
 
-[![Validation](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/workflows/ci.yml/badge.svg?branch=codex%2Ffinal-evaluation-hardening)](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/workflows/ci.yml)
+[![Validation](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Sohamgaonkhadkar/xpert-cold-start/actions/workflows/ci.yml)
 ![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Default mode: deterministic](https://img.shields.io/badge/default-deterministic-166534)
 
@@ -49,7 +49,6 @@ The engine handles English and common Hindi, Bengali and Hinglish cues, preserve
 ```bash
 git clone https://github.com/Sohamgaonkhadkar/xpert-cold-start.git
 cd xpert-cold-start
-git switch codex/final-evaluation-hardening
 
 # Run the included public worked example.
 bash run.sh example outputs/example.json
