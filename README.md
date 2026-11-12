@@ -8,7 +8,7 @@
 
 Built for the [Xpert Cold Start Challenge](https://goals.xpert.chat/w/intern). This Python batch engine reads an exported dataset and writes one validated JSON file. It does not connect to WhatsApp or require a database, frontend or background service.
 
-> **Verified grading profile:** the two-argument command uses deterministic inference, even when model credentials are present. Official dev: **28.9526/56**, **zero model calls**. Hybrid inference is an explicit experimental option; its final-source quality has not been independently verified with a funded model run.
+> **Execution profile:** the required two-argument command runs offline using deterministic inference. Optional model-assisted inference requires `--mode hybrid`.
 
 ## Contents
 
@@ -18,7 +18,6 @@ Built for the [Xpert Cold Start Challenge](https://goals.xpert.chat/w/intern). T
 - [Architecture](#architecture)
 - [Execution modes](#execution-modes)
 - [Configuration](#configuration)
-- [Verified results](#verified-results)
 - [Evaluation and testing](#evaluation-and-testing)
 - [Corrections](#corrections)
 - [Reliability and privacy](#reliability-and-privacy)
@@ -74,8 +73,6 @@ python3 -m venv .venv
 source .venv/bin/activate             # Git Bash on Windows: source .venv/Scripts/activate
 python3 -m pip install -r requirements.txt
 ```
-
-See [SUBMISSION.md](SUBMISSION.md) for the challenge handoff. Use an immutable commit SHA as the commit to grade.
 
 ## Input and output
 
@@ -184,37 +181,6 @@ Run `python3 -m src.cli --help` for the full interface.
 
 Admission costs are estimates. Provider-reported billing is recorded separately when available; failed requests can omit usage. Temporary in-flight credit holds and exhausted account credit are handled separately. These controls do not guarantee provider availability.
 
-## Verified results
-
-Recorded on **12 November 2026**. The official dev set contains **4,502 messages, 138 chats and 286 people**.
-
-| Official dev category | Points |
-|---|---:|
-| Circles | 9.0732 / 12 |
-| Organisations | 3.6958 / 8 |
-| Chat ownership | 6.3415 / 8 |
-| Open loops found | 3.9773 / 14 |
-| Open loops closed correctly | 5.8649 / 14 |
-| **Total measurable on dev** | **28.9526 / 56** |
-
-Goals and intervention decisions are **unlabelled in dev**. Their accuracy and the full competition score cannot be inferred from this total.
-
-| Verification | Recorded result |
-|---|---|
-| Development improvement | 19.7995 → **28.9526 / 56** |
-| Labelled loops found | **50 / 74** among 278 predictions |
-| Label-based precision / recall / F1 | **17.99% / 67.57% / 28.41%** |
-| False DONE among matched loops | **0** |
-| Public worked example, including zero-seed variant | **74 / 74** |
-| Regression suite | **125 passing tests** |
-| CI environments | Python **3.10, 3.12, 3.14** and a clean **3.12 container** |
-| Dense synthetic runtime | **63.88 s**: 20,000 messages, 320 chats, 5,000 designed task cases |
-| Graded profile model usage | **0 calls, 0 tokens, $0** |
-
-The dense fixture tests local runtime and designed cases; it is not hidden-set accuracy or network latency. Dev results were obtained after iterative tuning. Incomplete labels mean unmatched predictions are not automatically invalid tasks.
-
-Evidence: [final verification](metrics/submission_verification.json), [evaluation report](EVALUATION.md), [11 November ablations](metrics/nov11_evaluation.md) and [12 November corrections](metrics/nov12_evaluation.md).
-
 ## Evaluation and testing
 
 ### Offline checks
@@ -261,7 +227,7 @@ python3 -m scripts.correction_demo
 bash run.sh example outputs/corrected.json --corrections /path/to/corrections.json
 ```
 
-Prefer exact person IDs and originating message IDs. Ambiguous names fail clearly, and DONE/DROPPED corrections require later input evidence. Corrections are scoped changes rather than a new global inference rule. See [INTERVIEW.md](INTERVIEW.md) for the ten-minute walkthrough.
+Prefer exact person IDs and originating message IDs. Ambiguous names fail clearly, and DONE/DROPPED corrections require later input evidence. Corrections are scoped changes rather than a new global inference rule. The executable demonstration checks that unrelated records remain unchanged.
 
 ## Reliability and privacy
 
@@ -293,14 +259,12 @@ check.py             Official validator and scorer
 | Document | Purpose |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Current pipeline, responsibilities and trade-offs |
-| [EVALUATION.md](EVALUATION.md) | Verified measurements, historical experiments and evidence boundaries |
+| [EVALUATION.md](EVALUATION.md) | Evaluation method, measured results, runtime and limitations |
 | [WRITEUP.md](WRITEUP.md) · [PDF](metrics/writeup.pdf) | Two-page challenge write-up |
-| [SUBMISSION.md](SUBMISSION.md) | Grading profile, submission fields and handoff |
-| [INTERVIEW.md](INTERVIEW.md) | Reproducible correction demonstration |
 | [AI records](ai-logs/README.md) | Record provenance and transcript availability |
 
 ## Known limitations
 
-The final dev run has **24 unmatched reference loops**, **19 matched missed completions**, **six matched owner disagreements** and **ten incorrect unseeded circle labels out of 41**. Organisation membership and chat ownership remain ambiguous for sparse or mixed-role contacts.
+Sparse contacts, mixed personal/work roles and informal task wording can produce relationship, ownership and extraction errors. Organisation membership and cross-chat completion remain ambiguous when the history contains little direct evidence. Measured error counts and reproducible results are recorded in [EVALUATION.md](EVALUATION.md).
 
 Some reference origins are fragments, media, social messages or repeated sources, and some completed labels lack visible closure. The engine does not memorize these cases or duplicate predictions to exploit the checker. Goal and intervention quality cannot be measured from the unlabelled dev categories. Current hybrid quality and hidden-set ranking remain unverified.

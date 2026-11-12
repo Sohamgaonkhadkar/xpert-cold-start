@@ -4,7 +4,7 @@ The retained offline implementation scores **28.247735639442958/56**, an increas
 8.4483 points over the 19.7995 starting branch and 0.5977 above the supplied 27.65
 benchmark. This is an iteratively tuned dev result, not held-out evidence or proof of
 first place. Goals and intervention labels are absent; neither category was scored.
-No submission, merge or new paid model call was made.
+These measurements used no paid model calls.
 
 ## Causes and measured corrections
 

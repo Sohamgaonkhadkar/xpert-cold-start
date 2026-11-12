@@ -44,8 +44,8 @@ interventions are unlabelled there: its denominator is 56, whereas the example i
 | Hardened GPT-4o mini, serial /credit-limited | 19.80 | 0.00150 | 229.88 |
 
 Exact tested OpenRouter IDs: **openai/gpt-4.1-mini** and **openai/gpt-4o-mini**.
-The model field for submission is **openai/gpt-4.1-mini**; the default command makes
-zero model calls even with credentials. Optional testing uses **--mode hybrid**.
+The hybrid compatibility model is **openai/gpt-4.1-mini**; the default command makes
+zero model calls even with credentials. Optional model inference uses **--mode hybrid**.
 The original live run returned 128,022 input /17,264 output tokens in 39 responses,
 provider cost $0.0788312. Hardened serial runs returned 98,795 /13,075 tokens in 34
 responses ($0.042390), and 38,565 /1,602 in 43 responses ($0.00674595), respectively.
@@ -83,5 +83,5 @@ A dense synthetic 20k-message/320-chat run takes 63.88 s with 5,000 task candida
 valid output and zero model calls. This tests local runtime, not hidden accuracy.
 The optional hybrid path needs funded quality re-evaluation; it is not the grading
 configuration. We retain Dossier-ARR-PRISM rather than costly orchestration. Private
-data and credentials remain ignored. **Ready for deterministic evaluation**, with
-the measured errors above disclosed; no hidden-set accuracy or rank is claimed.
+data and credentials remain ignored. The measured errors above describe development
+behavior; hidden-set accuracy and ranking remain unknown.

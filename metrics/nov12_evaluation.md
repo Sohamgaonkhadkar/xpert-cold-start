@@ -69,4 +69,4 @@ duplicate origins or statements without an explicit obligation. Some done labels
 lack visible later completion. These were not converted into identity-specific
 exceptions or elapsed-time completion rules. Further reliable gains require richer
 context or a separately verified model; no funded-model improvement is claimed.
-The best tested work remains on the review branch and has not been submitted.
+The retained configuration is deterministic; model-assisted quality remains unverified.
